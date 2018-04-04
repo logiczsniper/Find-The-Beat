@@ -10,7 +10,7 @@ from scrapers import get_gibneys_events
 from scrapers import get_old_school_house_events
 
 
-def main():
+def get_events_malahide():
     """
     Use the above functions to print to output.txt the relevant(by location and time) events and their details
 

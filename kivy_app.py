@@ -1,123 +1,167 @@
 """A platform to host the service of finding nearby live music
 
-Simple, modern app. Small button to engage with the main() function to
+Simple, modern app. Small button to engage with the get_events_malahide() function to
 return the bands playing that day or in near future in Malahide.
 """
 
 
-from kivy.graphics import Color, Rectangle
+from TEST_get_malahide_events import get_events_malahide
+from kivy.graphics import Rectangle
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.app import App
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
 from kivy.uix.label import Label
-from TEST_get_malahide_events import main
 from kivy.uix.boxlayout import BoxLayout
+from kivy.animation import Animation
 
 
-class MainScreen(Screen):
+# Temporary - to create a window about the size of a smart phone screen
+from kivy.config import Config
+Config.set('graphics', 'width', '255')
+Config.set('graphics', 'height', '425')
+
+
+class MyScreen(Screen):
+    """
+    All of the screens need the get_screen_manager method, therefore I created this object to hold the
+    existing methods and variables that a regular Screen needs and also the get_screen_manager method
+    """
 
     def __init__(self, **kwargs):
-        super(MainScreen, self).__init__(**kwargs)
+        super(MyScreen, self).__init__(**kwargs)
+        self.output_string = ''
+        self.layout_to_home_screen = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5, 5])
 
-        my_layout_one = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5, 5, 5, 5])
-        my_layout_two = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 5, 5, 5])
-
-        to_results_button = Button(text='Tonight\'s Beat')
-        to_results_button.background_color = (0.89, 0.49, 0.1, 1)
-        to_results_button.size_hint_max = (110, 50)
-        to_results_button.border = [20, 20, 20, 20]
-        to_results_button.bind(on_press=self.changer_one)
-
-        to_fresults_button = Button(text='Future\'s Beat')
-        to_fresults_button.background_color = (0.89, 0.49, 0.1, 1)
-        to_fresults_button.size_hint_max = (110, 50)
-        to_fresults_button.border = [20, 20, 20, 20]
-        to_fresults_button.bind(on_press=self.changer_two)
-
-        my_layout_two.add_widget(to_fresults_button)
-        my_layout_one.add_widget(to_results_button)
-        self.add_widget(my_layout_one)
-        self.add_widget(my_layout_two)
-
-    def changer_one(self, *args):
-        self.manager.current = 'results'
-        self.manager.transition.direction = 'down'
-
-    def changer_two(self, *args):
-        self.manager.current = 'fresults'
-        self.manager.transition.direction = 'up'
+    def get_screen_manager(self, *args):
+        return self.manager
 
 
-class TonightResultsScreen(Screen):
+class MyButton(Button):
+    """
+    Takes everything needed from the built-in Button class and adds in my own animation.
+    Shrinks both the button and font-size slightly and then reverts back to the original size.
+    """
+
+    def __init__(self, manager, destination, t_direction, **kwargs):
+        super(MyButton, self).__init__(**kwargs)
+        self.manager = manager
+        self.destination = destination
+        self.transition_direction = t_direction
+
+    def changer(self, *args):
+        self.manager().current = self.destination
+        self.manager().transition.direction = self.transition_direction
+
+    def on_press(self):
+        button_animation = Animation(size=(140, 45), duration=0.04) & \
+            Animation(font_size=7, duration=0.04) + \
+            Animation(size=(150, 50), duration=0.04) & \
+            Animation(font_size=self.font_size, duration=0.04)
+        button_animation.bind(on_complete=self.changer)
+        button_animation.start(self)
+
+
+class HomeScreen(MyScreen):
+    """
+    The main screen of the app
+    Holds both buttons to tonight's events page and to future's events page
+    """
+
+    def __init__(self, **kwargs):
+        super(HomeScreen, self).__init__(**kwargs)
+        layout_today_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 75])
+        layout_future_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 15])
+        button_today_events = MyButton(self.get_screen_manager, 'today results', 'up',
+                                       text='Tonight\'s Beat',
+                                       background_color=(0.59, 0.48, 0.32, 0.54),
+                                       size_hint_max=(150, 50),
+                                       size_hint=(None, None),
+                                       width=150,
+                                       height=50)
+        button_future_events = MyButton(self.get_screen_manager, 'future results', 'up',
+                                        text='Future\'s Beat',
+                                        background_color=(0.59, 0.48, 0.32, 0.54),
+                                        size_hint_max=(150, 50),
+                                        size_hint=(None, None),
+                                        width=150,
+                                        height=50)
+        layout_future_events.add_widget(button_future_events)
+        layout_today_events.add_widget(button_today_events)
+        self.add_widget(layout_future_events)
+        self.add_widget(layout_today_events)
+
+
+class TonightResultsScreen(MyScreen):
+    """
+    Displays the results from get_events_malahide() that are on today
+    """
 
     def __init__(self, **kwargs):
         super(TonightResultsScreen, self).__init__(**kwargs)
+        button_tonight_to_home = MyButton(self.get_screen_manager, 'home screen', 'down',
+                                          text='Back To Home',
+                                          background_color=(0.59, 0.48, 0.32, 0.54),
+                                          size_hint_max=(150, 50),
+                                          size_hint=(None, None),
+                                          width=150,
+                                          height=50)
+        self.layout_to_home_screen.add_widget(button_tonight_to_home)
+        layout_display_results = BoxLayout(orientation='vertical', spacing=5)
 
-        my_layout = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 5, 5, 5])
-        new_button = Button(text='Back To Home')
-        new_button.background_color = (0.89, 0.49, 0.1, 1)
-        new_button.size_hint_max = (110, 50)
-        new_button.bind(on_press=self.changer)
-        my_layout.add_widget(new_button)
+        if len(live_music_events[0]) >= 1:
 
-        results_layout = BoxLayout(orientation='vertical', spacing=5)
-        output_string = ''
-
-        if len(main()[0]) >= 1:
-            for local_event in main()[0]:
+            for local_event in live_music_events[0]:
                 if local_event is not None:
                     for event_property in local_event:
-                        output_string += "{}: {} \n".format(event_property, local_event.get(event_property))
+                        self.output_string += "{}: {} \n".format(event_property, local_event.get(event_property))
+
         else:
-            output_string = 'I am sorry, \n I could not find any events today!'
+            self.output_string = 'I am sorry, \n I could not find any events today!'
 
-        results_label = Label(text=output_string, font_size=10)
-        results_layout.add_widget(results_label)
-
-        self.add_widget(results_layout)
-        self.add_widget(my_layout)
-
-    def changer(self, *args):
-        self.manager.current = 'main'
-        self.manager.transition.direction = 'up'
+        label_results = Label(text=self.output_string, font_size=10)
+        layout_display_results.add_widget(label_results)
+        self.add_widget(layout_display_results)
+        self.add_widget(self.layout_to_home_screen)
 
 
-class FutureResultsScreen(Screen):
+class FutureResultsScreen(MyScreen):
+    """
+    Displays all the results from get_events_malahide()
+    """
 
     def __init__(self, **kwargs):
         super(FutureResultsScreen, self).__init__(**kwargs)
+        button_future_to_home = MyButton(self.get_screen_manager, 'home screen', 'down',
+                                         text='Back To Home',
+                                         background_color=(0.59, 0.48, 0.32, 0.54),
+                                         size_hint_max=(150, 50),
+                                         size_hint=(None, None),
+                                         width=150,
+                                         height=50)
+        self.layout_to_home_screen.add_widget(button_future_to_home)
+        layout_display_results = BoxLayout(orientation='vertical', spacing=5)
 
-        my_layout = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5, 5, 5, 5])
-        new_button = Button(text='Back To Home')
-        new_button.background_color = (0.89, 0.49, 0.1, 1)
-        new_button.size_hint_max = (110, 50)
-        new_button.bind(on_press=self.changer)
-        my_layout.add_widget(new_button)
+        if len(live_music_events[1]) >= 1:
 
-        results_layout = BoxLayout(orientation='vertical', spacing=5)
-        output_string = ''
-
-        if len(main()[0]) >= 1:
-            for local_event in main()[1]:
-                if local_event is not None and len(output_string) < 400:
+            for local_event in live_music_events[1]:
+                if local_event is not None and len(self.output_string) < 400:
                     for event_property in local_event:
-                        output_string += "{}: {} \n".format(event_property, local_event.get(event_property))
+                        self.output_string += "{}: {} \n".format(event_property, local_event.get(event_property))
+
         else:
-            output_string = 'I am sorry, \n I could not find any events today!'
+            self.output_string = 'I am sorry, \n I could not find any events today!'
 
-        results_label = Label(text=output_string, font_size=10)
-        results_layout.add_widget(results_label)
-
-        self.add_widget(results_layout)
-        self.add_widget(my_layout)
-
-    def changer(self, *args):
-        self.manager.current = 'main'
-        self.manager.transition.direction = 'down'
+        label_results = Label(text=self.output_string, font_size=10)
+        layout_display_results.add_widget(label_results)
+        self.add_widget(layout_display_results)
+        self.add_widget(self.layout_to_home_screen)
 
 
 class ScreenManagement(ScreenManager):
+    """
+    Change the transition effect to Slide Transition
+    """
 
     def __init__(self, **kwargs):
         super(ScreenManagement, self).__init__(**kwargs)
@@ -125,29 +169,32 @@ class ScreenManagement(ScreenManager):
 
 
 class MyApp(App):
+    """
+    Set everything up, display the background.jpg as the background image.
+    Adjust the size of the image based on the size of the screen
+    """
 
     def build(self):
-        new_screenmanager = ScreenManagement()
-        first_screen = MainScreen(name='main')
-        second_screen = TonightResultsScreen(name='results')
-        third_screen = FutureResultsScreen(name='fresults')
-        new_screenmanager.add_widget(first_screen)
-        new_screenmanager.add_widget(second_screen)
-        new_screenmanager.add_widget(third_screen)
+        app_screen_manager = ScreenManagement()
+        home_screen = HomeScreen(name='home screen')
+        today_results_screen = TonightResultsScreen(name='today results')
+        future_results_screen = FutureResultsScreen(name='future results')
+        app_screen_manager.add_widget(home_screen)
+        app_screen_manager.add_widget(today_results_screen)
+        app_screen_manager.add_widget(future_results_screen)
         self.title = 'Find The Beat'
-
-        self.root = root = new_screenmanager.current_screen
+        self.root = root = app_screen_manager.current_screen
         root.bind(size=self._update_rect, pos=self._update_rect)
         with root.canvas.before:
-            Color(0.71, 0.4, 0.08, 1)
-            self.rect = Rectangle(size=root.size, pos=root.pos)
+            self.rect = Rectangle(size=root.size, pos=root.pos, source='background.jpg')
 
-        return new_screenmanager
+        return app_screen_manager
 
-    def _update_rect(self, instance, value):
-        self.rect.pos = instance.pos
-        self.rect.size = instance.size
+    def _update_rect(self, *args):
+        self.rect.pos = args[0].pos
+        self.rect.size = args[0].size
 
 
 if __name__ == '__main__':
+    live_music_events = get_events_malahide()
     MyApp().run()
