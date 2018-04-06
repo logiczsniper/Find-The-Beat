@@ -59,7 +59,3 @@ def get_events_malahide():
             continue
 
     return [tonights_events, all_upcoming_events]
-
-
-if __name__ == '__main__':
-    main()

@@ -1,7 +1,10 @@
 """A platform to host the service of finding nearby live music
 
-Simple, modern app. Small button to engage with the get_events_malahide() function to
-return the bands playing that day or in near future in Malahide.
+Simple, modern app. Uses the get_events_malahide() function to
+return the bands playing that day or in the near future in Malahide.
+
+All possible arguments for *args and **kwargs for each usage can be found in the kivy documentation at:
+https://kivy.org/docs/api-kivy.html
 """
 
 
@@ -14,6 +17,9 @@ from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
 from kivy.uix.label import Label
 from kivy.uix.boxlayout import BoxLayout
 from kivy.animation import Animation
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.gridlayout import GridLayout
+from kivy.effects.opacityscroll import OpacityScrollEffect
 
 
 # Temporary - to create a window about the size of a smart phone screen
@@ -22,16 +28,64 @@ Config.set('graphics', 'width', '255')
 Config.set('graphics', 'height', '425')
 
 
+class MyScrollingView(ScrollView):
+    """
+    A scrollable label for both today's results screen and future's results screen
+
+    :param live_music_num: 0 signifies only today's events, while 1 signifies all foreseeable events
+    :type: int
+    """
+
+    def __init__(self, live_music_num,  **kwargs):
+        super().__init__(**kwargs)
+
+        self.effect_cls = OpacityScrollEffect
+        self.output_string = ''
+        self.size = (230, 310)
+        self.size_hint = (1, None)
+        self.layout_display_results = GridLayout(cols=1, spacing=2, size_hint_y=None, padding=[10, 50])
+        self.layout_display_results.bind(minimum_height=self.layout_display_results.setter('height'))
+
+        if len(live_music_events[live_music_num]) >= 1:
+
+            for local_event in live_music_events[live_music_num]:
+                if local_event is not None:
+                    self.output_string = ''
+                    for event_property in local_event:
+                        self.output_string += "{}: {} \n".format(event_property, local_event.get(event_property))
+                    label_results = Label(text=self.output_string,
+                                          text_size=[220, None],
+                                          size_hint_y=None,
+                                          font_size=10)
+                    self.layout_display_results.add_widget(label_results)
+
+        else:
+            self.output_string = 'I am sorry, \n I could not find any events!'
+            label_results = Label(text=self.output_string, text_size=[200, None])
+            self.layout_display_results.add_widget(label_results)
+
+        self.add_widget(self.layout_display_results)
+
+
 class MyScreen(Screen):
     """
     All of the screens need the get_screen_manager method, therefore I created this object to hold the
-    existing methods and variables that a regular Screen needs and also the get_screen_manager method
+    existing methods and variables that a regular Screen needs and also the get_screen_manager method.
+    In addition, it draws and updates the background image on each screen.
     """
 
     def __init__(self, **kwargs):
-        super(MyScreen, self).__init__(**kwargs)
-        self.output_string = ''
-        self.layout_to_home_screen = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5, 5])
+        super().__init__(**kwargs)
+        self.layout_to_home_screen = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5])
+
+        self.root = root = self
+        root.bind(size=self._update_rect, pos=self._update_rect)
+        with root.canvas.before:
+            self.rect = Rectangle(size=root.size, pos=root.pos, source='background.jpg')
+
+    def _update_rect(self, *args):
+        self.rect.pos = args[0].pos
+        self.rect.size = args[0].size
 
     def get_screen_manager(self, *args):
         return self.manager
@@ -41,13 +95,26 @@ class MyButton(Button):
     """
     Takes everything needed from the built-in Button class and adds in my own animation.
     Shrinks both the button and font-size slightly and then reverts back to the original size.
+
+    :param manager: give the button access to the screen manager
+    :type: object
+
+    :param destination: gives the screen name that the button will change to
+    :type: str
+
+    :param t_direction: transition direction of the screen- which direction does it slide, up or down
+    :type: str
     """
 
     def __init__(self, manager, destination, t_direction, **kwargs):
-        super(MyButton, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.manager = manager
         self.destination = destination
         self.transition_direction = t_direction
+        self.background_color = (0.59, 0.48, 0.32, 0.54)
+        self.size_hint_max = (150, 50)
+        self.size_hint = (None, None)
+        self.size = (150, 50)
 
     def changer(self, *args):
         self.manager().current = self.destination
@@ -55,9 +122,9 @@ class MyButton(Button):
 
     def on_press(self):
         button_animation = Animation(size=(140, 45), duration=0.04) & \
-            Animation(font_size=7, duration=0.04) + \
-            Animation(size=(150, 50), duration=0.04) & \
-            Animation(font_size=self.font_size, duration=0.04)
+                           Animation(font_size=7, duration=0.04) + \
+                           Animation(size=(150, 50), duration=0.04) & \
+                           Animation(font_size=self.font_size, duration=0.04)
         button_animation.bind(on_complete=self.changer)
         button_animation.start(self)
 
@@ -69,25 +136,17 @@ class HomeScreen(MyScreen):
     """
 
     def __init__(self, **kwargs):
-        super(HomeScreen, self).__init__(**kwargs)
-        layout_today_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 75])
-        layout_future_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 15])
-        button_today_events = MyButton(self.get_screen_manager, 'today results', 'up',
-                                       text='Tonight\'s Beat',
-                                       background_color=(0.59, 0.48, 0.32, 0.54),
-                                       size_hint_max=(150, 50),
-                                       size_hint=(None, None),
-                                       width=150,
-                                       height=50)
-        button_future_events = MyButton(self.get_screen_manager, 'future results', 'up',
-                                        text='Future\'s Beat',
-                                        background_color=(0.59, 0.48, 0.32, 0.54),
-                                        size_hint_max=(150, 50),
-                                        size_hint=(None, None),
-                                        width=150,
-                                        height=50)
+        super().__init__(**kwargs)
+        layout_today_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 130])
+        layout_future_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 75])
+        layout_about = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 19])
+        button_today_events = MyButton(self.get_screen_manager, 'today results', 'up', text='Tonight\'s Beat')
+        button_future_events = MyButton(self.get_screen_manager, 'future results', 'up', text='Future\'s Beat')
+        button_about = MyButton(self.get_screen_manager, 'about screen', 'up', text='About')
         layout_future_events.add_widget(button_future_events)
         layout_today_events.add_widget(button_today_events)
+        layout_about.add_widget(button_about)
+        self.add_widget(layout_about)
         self.add_widget(layout_future_events)
         self.add_widget(layout_today_events)
 
@@ -98,30 +157,11 @@ class TonightResultsScreen(MyScreen):
     """
 
     def __init__(self, **kwargs):
-        super(TonightResultsScreen, self).__init__(**kwargs)
-        button_tonight_to_home = MyButton(self.get_screen_manager, 'home screen', 'down',
-                                          text='Back To Home',
-                                          background_color=(0.59, 0.48, 0.32, 0.54),
-                                          size_hint_max=(150, 50),
-                                          size_hint=(None, None),
-                                          width=150,
-                                          height=50)
+        super().__init__(**kwargs)
+        button_tonight_to_home = MyButton(self.get_screen_manager, 'home screen', 'down', text='Back To Home')
         self.layout_to_home_screen.add_widget(button_tonight_to_home)
-        layout_display_results = BoxLayout(orientation='vertical', spacing=5)
-
-        if len(live_music_events[0]) >= 1:
-
-            for local_event in live_music_events[0]:
-                if local_event is not None:
-                    for event_property in local_event:
-                        self.output_string += "{}: {} \n".format(event_property, local_event.get(event_property))
-
-        else:
-            self.output_string = 'I am sorry, \n I could not find any events today!'
-
-        label_results = Label(text=self.output_string, font_size=10)
-        layout_display_results.add_widget(label_results)
-        self.add_widget(layout_display_results)
+        base_scroll_view = MyScrollingView(0)
+        self.add_widget(base_scroll_view)
         self.add_widget(self.layout_to_home_screen)
 
 
@@ -131,28 +171,36 @@ class FutureResultsScreen(MyScreen):
     """
 
     def __init__(self, **kwargs):
-        super(FutureResultsScreen, self).__init__(**kwargs)
-        button_future_to_home = MyButton(self.get_screen_manager, 'home screen', 'down',
-                                         text='Back To Home',
-                                         background_color=(0.59, 0.48, 0.32, 0.54),
-                                         size_hint_max=(150, 50),
-                                         size_hint=(None, None),
-                                         width=150,
-                                         height=50)
+        super().__init__(**kwargs)
+        button_future_to_home = MyButton(self.get_screen_manager, 'home screen', 'down', text='Back To Home')
         self.layout_to_home_screen.add_widget(button_future_to_home)
-        layout_display_results = BoxLayout(orientation='vertical', spacing=5)
+        base_scroll_view = MyScrollingView(1)
+        self.add_widget(base_scroll_view)
+        self.add_widget(self.layout_to_home_screen)
 
-        if len(live_music_events[1]) >= 1:
 
-            for local_event in live_music_events[1]:
-                if local_event is not None and len(self.output_string) < 400:
-                    for event_property in local_event:
-                        self.output_string += "{}: {} \n".format(event_property, local_event.get(event_property))
+class AboutScreen(MyScreen):
+    """
+    Displays information about app and its usage
+    """
 
-        else:
-            self.output_string = 'I am sorry, \n I could not find any events today!'
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        button_tonight_to_home = MyButton(self.get_screen_manager, 'home screen', 'down', text='Back To Home')
+        self.layout_to_home_screen.add_widget(button_tonight_to_home)
+        layout_display_results = BoxLayout(orientation='vertical', spacing=5, padding=[5])
 
-        label_results = Label(text=self.output_string, font_size=10)
+        self.output_string = '''
+Find The Beat allows it\'s users to locate live music playing in their area,
+while providing them with the key information to attend the event.
+The art for the app was created by Robert Morgan.
+The sound effects/music was created by Brandon Duffield.
+The idea for the app was provided by Jon Czernel.
+The web scraping functionality and the app itself was created by Logan Czernel.
+Built with Python. Modules: Kivy, BeautifulSoup and Requests.
+'''
+
+        label_results = Label(text=self.output_string, font_size=10, text_size=[200, 200], halign='center')
         layout_display_results.add_widget(label_results)
         self.add_widget(layout_display_results)
         self.add_widget(self.layout_to_home_screen)
@@ -164,7 +212,7 @@ class ScreenManagement(ScreenManager):
     """
 
     def __init__(self, **kwargs):
-        super(ScreenManagement, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.transition = SlideTransition()
 
 
@@ -172,6 +220,9 @@ class MyApp(App):
     """
     Set everything up, display the background.jpg as the background image.
     Adjust the size of the image based on the size of the screen
+
+    :return app_screen_manager: the screen manager of all the screens in the app
+    :rtype: object
     """
 
     def build(self):
@@ -179,20 +230,14 @@ class MyApp(App):
         home_screen = HomeScreen(name='home screen')
         today_results_screen = TonightResultsScreen(name='today results')
         future_results_screen = FutureResultsScreen(name='future results')
+        about_screen = AboutScreen(name='about screen')
         app_screen_manager.add_widget(home_screen)
         app_screen_manager.add_widget(today_results_screen)
         app_screen_manager.add_widget(future_results_screen)
+        app_screen_manager.add_widget(about_screen)
         self.title = 'Find The Beat'
-        self.root = root = app_screen_manager.current_screen
-        root.bind(size=self._update_rect, pos=self._update_rect)
-        with root.canvas.before:
-            self.rect = Rectangle(size=root.size, pos=root.pos, source='background.jpg')
 
         return app_screen_manager
-
-    def _update_rect(self, *args):
-        self.rect.pos = args[0].pos
-        self.rect.size = args[0].size
 
 
 if __name__ == '__main__':
