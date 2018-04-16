@@ -3,5 +3,5 @@ http://donboscooratory.com/dbo-school-of-modern-music/
 
 Scraped websites:
 http://www.duffys.ie/best-pub-for-bands-playing-in-malahide-dublin-this-weekend/#more-1518
-http://gibneys.com/whats-on.html
+https://www.ticketweb.ie/search?q=gibneys+malahide
 https://theoldschoolhouse.ie/entertainment/

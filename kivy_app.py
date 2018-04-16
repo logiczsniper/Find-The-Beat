@@ -1,6 +1,6 @@
 """A platform to host the service of finding nearby live music
 
-Simple, modern app. Uses the get_events_malahide() function to
+Simple, modern app. Uses the get_all_events() function to
 return the bands playing that day or in the near future in Malahide.
 
 All possible arguments for *args and **kwargs for each usage can be found in the kivy documentation at:
@@ -8,7 +8,7 @@ https://kivy.org/docs/api-kivy.html
 """
 
 
-from TEST_get_malahide_events import get_events_malahide
+from get_events import get_all_events
 from kivy.graphics import Rectangle
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.app import App
@@ -20,6 +20,7 @@ from kivy.animation import Animation
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
 from kivy.effects.opacityscroll import OpacityScrollEffect
+from kivy.uix.image import Image
 
 
 # Temporary - to create a window about the size of a smart phone screen
@@ -38,14 +39,12 @@ class MyScrollingView(ScrollView):
 
     def __init__(self, live_music_num,  **kwargs):
         super().__init__(**kwargs)
-
         self.effect_cls = OpacityScrollEffect
         self.output_string = ''
         self.size = (230, 310)
         self.size_hint = (1, None)
         self.layout_display_results = GridLayout(cols=1, spacing=2, size_hint_y=None, padding=[10, 50])
         self.layout_display_results.bind(minimum_height=self.layout_display_results.setter('height'))
-
         if len(live_music_events[live_music_num]) >= 1:
 
             for local_event in live_music_events[live_music_num]:
@@ -60,7 +59,7 @@ class MyScrollingView(ScrollView):
                     self.layout_display_results.add_widget(label_results)
 
         else:
-            self.output_string = 'I am sorry, \n I could not find any events!'
+            self.output_string = 'I am sorry, \nI could not find any events!'
             label_results = Label(text=self.output_string, text_size=[200, None])
             self.layout_display_results.add_widget(label_results)
 
@@ -77,7 +76,6 @@ class MyScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.layout_to_home_screen = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5])
-
         self.root = root = self
         root.bind(size=self._update_rect, pos=self._update_rect)
         with root.canvas.before:
@@ -137,18 +135,32 @@ class HomeScreen(MyScreen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        layout_today_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 130])
-        layout_future_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 75])
-        layout_about = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, 19])
+        title_image = Image(source='title_icon.png')
+        layout_today_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, -500])
+        layout_future_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, -500])
+        layout_about = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, -500])
+        layout_title = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5, -350, 5, 350])
         button_today_events = MyButton(self.get_screen_manager, 'today results', 'up', text='Tonight\'s Beat')
         button_future_events = MyButton(self.get_screen_manager, 'future results', 'up', text='Future\'s Beat')
         button_about = MyButton(self.get_screen_manager, 'about screen', 'up', text='About')
         layout_future_events.add_widget(button_future_events)
         layout_today_events.add_widget(button_today_events)
         layout_about.add_widget(button_about)
+        layout_title.add_widget(title_image)
         self.add_widget(layout_about)
         self.add_widget(layout_future_events)
         self.add_widget(layout_today_events)
+        self.add_widget(layout_title)
+
+        animation_future = Animation(pos=(0, 558), duration=1.9, t='out_quad')
+        animation_today = Animation(pos=(0, 610), duration=1.9, t='out_quad')
+        animation_about = Animation(pos=(0, 506), duration=1.9, t='out_quad')
+        animation_title = Animation(pos=(0, -270), duration=2.7, t='out_quad')
+
+        animation_about.start(layout_about)
+        animation_future.start(layout_future_events)
+        animation_today.start(layout_today_events)
+        animation_title.start(layout_title)
 
 
 class TonightResultsScreen(MyScreen):
@@ -189,7 +201,6 @@ class AboutScreen(MyScreen):
         button_tonight_to_home = MyButton(self.get_screen_manager, 'home screen', 'down', text='Back To Home')
         self.layout_to_home_screen.add_widget(button_tonight_to_home)
         layout_display_results = BoxLayout(orientation='vertical', spacing=5, padding=[5])
-
         self.output_string = '''
 Find The Beat allows it\'s users to locate live music playing in their area,
 while providing them with the key information to attend the event.
@@ -199,21 +210,10 @@ The idea for the app was provided by Jon Czernel.
 The web scraping functionality and the app itself was created by Logan Czernel.
 Built with Python. Modules: Kivy, BeautifulSoup and Requests.
 '''
-
         label_results = Label(text=self.output_string, font_size=10, text_size=[200, 200], halign='center')
         layout_display_results.add_widget(label_results)
         self.add_widget(layout_display_results)
         self.add_widget(self.layout_to_home_screen)
-
-
-class ScreenManagement(ScreenManager):
-    """
-    Change the transition effect to Slide Transition
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.transition = SlideTransition()
 
 
 class MyApp(App):
@@ -226,7 +226,7 @@ class MyApp(App):
     """
 
     def build(self):
-        app_screen_manager = ScreenManagement()
+        app_screen_manager = ScreenManager(transition=SlideTransition())
         home_screen = HomeScreen(name='home screen')
         today_results_screen = TonightResultsScreen(name='today results')
         future_results_screen = FutureResultsScreen(name='future results')
@@ -241,5 +241,6 @@ class MyApp(App):
 
 
 if __name__ == '__main__':
-    live_music_events = get_events_malahide()
+    live_music_events = get_all_events()
+
     MyApp().run()
