@@ -8,7 +8,7 @@ Websites that have had data scraped from are given credit in README
 
 
 from eventhub import EventHub
-from eventproperties import EventProperties
+from all_properties import EventProperties, ArtistProperties, VenueProperties
 from datetime import datetime
 
 
@@ -20,6 +20,7 @@ def get_old_school_house_events():
     """
     Creates an instance of EventHub for old school house bar and fills with information on events along
     with an id number
+
     :return: old school house events with all the variables for the events
     :rtype: dict
     """
@@ -43,12 +44,22 @@ def get_old_school_house_events():
                       ' ' +
                       str(now.year) for i in old_school_house.events_info[0].find_all('h5')][counter]
 
-        old_school_house.add_event(counter, {
+        old_school_house.add_data_dict({'event_info': {
+            EventProperties.DATE_STATUS: None,
             EventProperties.DATE: event_date,
             EventProperties.TIME: band_event.text.split('...')[-1],
-            EventProperties.ARTIST_NAME: artist_name,
-            EventProperties.LOCATION: "Old School House Bar & Restaurant",
             EventProperties.PRICE: '-'
-        })
+        }})
+
+        old_school_house.add_data_dict({'artist_info': {
+            ArtistProperties.ARTIST_NAME: artist_name,
+            ArtistProperties.FACEBOOK_URL: "-"
+        }})
+
+        old_school_house.add_data_dict({'venue_info': {
+            VenueProperties.NAME: "Old School House Bar & Restaurant",
+            VenueProperties.ADDRESS: "Church Rd, Swords Glebe, Swords, Co. Dublin",
+            VenueProperties.WEBSITE_URL: old_school_house.url
+        }})
 
     return old_school_house.get_events()

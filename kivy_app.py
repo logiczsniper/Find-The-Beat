@@ -8,7 +8,7 @@ https://kivy.org/docs/api-kivy.html
 """
 
 
-from get_events import get_all_events
+from reach_db import get_db_info
 from kivy.graphics import Rectangle
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.app import App
@@ -21,6 +21,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
 from kivy.effects.opacityscroll import OpacityScrollEffect
 from kivy.uix.image import Image
+import _mysql_exceptions
 
 
 # Temporary - to create a window about the size of a smart phone screen
@@ -33,7 +34,8 @@ class MyScrollingView(ScrollView):
     """
     A scrollable label for both today's results screen and future's results screen
 
-    :param live_music_num: 0 signifies only today's events, while 1 signifies all foreseeable events
+    :param live_music_num: 0 signifies only today's events, while 1 signifies all foreseeable events, while 2 signifies
+    past events
     :type: int
     """
 
@@ -43,20 +45,25 @@ class MyScrollingView(ScrollView):
         self.output_string = ''
         self.size = (230, 310)
         self.size_hint = (1, None)
-        self.layout_display_results = GridLayout(cols=1, spacing=2, size_hint_y=None, padding=[10, 50])
+        self.layout_display_results = GridLayout(cols=1, spacing=50, size_hint_y=None, padding=[10, 50])
         self.layout_display_results.bind(minimum_height=self.layout_display_results.setter('height'))
         if len(live_music_events[live_music_num]) >= 1:
 
-            for local_event in live_music_events[live_music_num]:
-                if local_event is not None:
-                    self.output_string = ''
-                    for event_property in local_event:
-                        self.output_string += "{}: {} \n".format(event_property, local_event.get(event_property))
-                    label_results = Label(text=self.output_string,
-                                          text_size=[220, None],
-                                          size_hint_y=None,
-                                          font_size=10)
-                    self.layout_display_results.add_widget(label_results)
+            for info_list in live_music_events[live_music_num]:
+
+                self.output_string = ''
+
+                for event_property_list in info_list:
+
+                    for event_property in event_property_list:
+
+                        self.output_string += "{} \n".format(event_property)
+
+                label_results = Label(text=self.output_string,
+                                      text_size=[225, None],
+                                      size_hint_y=None,
+                                      font_size=10)
+                self.layout_display_results.add_widget(label_results)
 
         else:
             self.output_string = 'I am sorry, \nI could not find any events!'
@@ -241,6 +248,11 @@ class MyApp(App):
 
 
 if __name__ == '__main__':
-    live_music_events = get_all_events()
+    try:
+        live_music_events = get_db_info()
+    except _mysql_exceptions.OperationalError as oe:
+        live_music_events = [
+            [[('Whoops! No internet connection!', 'Connect me to the internet and reboot the app!')]] for i in range(3)
+        ]
 
     MyApp().run()

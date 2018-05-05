@@ -1,7 +1,7 @@
 """Functions that convert an abbreviated weekday or month to their full name
 
 Some websites use abbreviations for weekdays or months. These can allow me to easily convert the shorter
-abbreviation to the longer version.
+abbreviation to the longer version for display in the app.
 """
 
 

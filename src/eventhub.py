@@ -14,6 +14,7 @@ class EventHub:
     def __init__(self, url, repeated_element, repeated_ds):
         """
         Construct an EventHub object
+
         :param url: the url to the location's web page
         :type: str
 
@@ -28,23 +29,30 @@ class EventHub:
         self.page = get(url)
         self.html = BeautifulSoup(self.page.content, 'html5lib')
         self.events_info = self.html.find_all(repeated_element, repeated_ds)
-        self.events = {}
+        self.event_info = []
+        self.all_events_info = []
 
-    def add_event(self, number, event_details):
+    def add_data_dict(self, data_dict):
         """
         Add to the events dictionary for the location
-        :param number: the new id number to correspond with the event it labels
-        :type: str
 
-        :param event_details: date, time, artist_name, location and price of the event
+        :param data_dict: date, time, and price of the event
         :type: dict
         """
-        self.events[f'{number}'] = event_details
+        self.event_info.append(data_dict)
+
+        try:
+            if data_dict['venue_info']:
+                self.all_events_info.append(self.event_info)
+                self.event_info = []
+        except KeyError:
+            pass
 
     def get_events(self):
         """
         Makes the EventHub's events dictionary available
+
         :return: the EventHub's events and their details
         :rtype: dict
         """
-        return self.events
+        return self.all_events_info
