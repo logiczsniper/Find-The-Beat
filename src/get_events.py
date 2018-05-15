@@ -8,6 +8,7 @@ from datetime import datetime
 from scrapers_malahide import get_duffys_events
 from scrapers_malahide import get_gibneys_events
 from scrapers_swords import get_old_school_house_events
+from scrapers_swords import get_theestuary_events
 
 
 now = datetime.now()
@@ -82,10 +83,10 @@ def get_all_events():
     gibneys_events = get_gibneys_events()
     duffys_events = get_duffys_events()
     old_school_house_events = get_old_school_house_events()
+    theestuary_events = get_theestuary_events()
     all_events = []
-    all_event_lists = [duffys_events, gibneys_events, old_school_house_events]
 
-    for event_list in all_event_lists:
+    for event_list in [duffys_events, gibneys_events, old_school_house_events, theestuary_events]:
 
         try:
             if event_list == duffys_events:
@@ -99,6 +100,10 @@ def get_all_events():
             elif event_list == old_school_house_events:
                 new_old_school_house_list = edit_date_status(old_school_house_events)
                 all_events.extend(new_old_school_house_list)
+
+            elif event_list == theestuary_events:
+                new_theestuary_list = edit_date_status(theestuary_events)
+                all_events.extend(new_theestuary_list)
 
         except AttributeError:
             continue
