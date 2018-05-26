@@ -47,7 +47,7 @@ def get_old_school_house_events():
             old_school_house.add_data_dict({'event_info': {
                 EventProperties.DATE_STATUS: None,
                 EventProperties.DATE: event_date,
-                EventProperties.TIME: band_event.text.split('...')[-1],
+                EventProperties.TIME: band_event.text.split('...')[-1].strip(),
                 EventProperties.PRICE: '-'
             }})
 

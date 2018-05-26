@@ -15,6 +15,32 @@ now = datetime.now()
 weekday = now.strftime("%A")
 
 
+def locate_month_string(split_date_list):
+    """
+    Takes the split list of an events date and locates the month as a string. Returns this value.
+
+    :param split_date_list: the event date property.split(' ') to form a list
+    :type: list
+
+    :return: the string value of the month
+    :rtype: str
+
+    :return: upon not successfully finding the day value, return '0'
+    :rtype: str
+    """
+
+    for counter, value in enumerate(split_date_list):
+
+        if counter == 0:
+            continue
+
+        try:
+            if int(value):
+                continue
+        except ValueError:
+            return value.lower()
+
+
 def locate_day_number(split_date_list):
     """
     Takes the split list of an events date and locates the day number. Returns this value.
@@ -25,17 +51,17 @@ def locate_day_number(split_date_list):
     :return: the int value of the day
     :rtype: int
 
-    :return: upon not successfully finding the day value, return None
-    :rtype: None
+    :return: upon not successfully finding the day value, return 0
+    :rtype: int
     """
 
     for value in split_date_list:
 
         try:
-            if not value == now.year:
+            if not int(value) == now.year:
                 return int(value)
             else:
-                return None
+                return 0
         except ValueError:
             continue
 
@@ -56,11 +82,13 @@ def edit_date_status(events_list):
 
         date_of_event = data_dict_list[0].get('event_info').get('event_date')
         if data_dict_list not in new_all_events:
+
             try:
                 if weekday in date_of_event and str(now.day) in date_of_event[:-4]:
                     data_dict_list[0].get('event_info')['event_date_status'] = 'today'
-                elif now.day > locate_day_number(date_of_event.split(' ')) \
-                        and now.strftime("%B").lower() in date_of_event.split(' ')[1].lower():
+                elif locate_day_number(date_of_event.split(' ')) != 0 \
+                        and now.day > locate_day_number(date_of_event.split(' ')) \
+                        and now.strftime("%B").lower() in locate_month_string(date_of_event.split(' ')):
                     data_dict_list[0].get('event_info')['event_date_status'] = 'past'
                 else:
                     data_dict_list[0].get('event_info')['event_date_status'] = 'future'

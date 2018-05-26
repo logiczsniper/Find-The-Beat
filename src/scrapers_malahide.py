@@ -37,7 +37,7 @@ def get_duffys_events():
             duffys.add_data_dict({'event_info': {
                 EventProperties.DATE_STATUS: None,
                 EventProperties.DATE: band_event.text.split('>')[0][:-3] + f" {now.strftime('%B')} {now.year}",
-                EventProperties.TIME: band_event.text.split('–')[-1],
+                EventProperties.TIME: band_event.text.split('–')[-1].strip(),
                 EventProperties.PRICE: '-'
             }})
 

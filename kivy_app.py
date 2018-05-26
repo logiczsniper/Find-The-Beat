@@ -14,6 +14,7 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.graphics import Rectangle, Color
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
+from kivy.uix.textinput import TextInput
 from kivy.uix.label import Label
 from kivy.animation import Animation
 from kivy.uix.button import Button
@@ -22,14 +23,102 @@ from kivy.uix.scrollview import ScrollView
 from kivy.effects.opacityscroll import OpacityScrollEffect
 from kivy.core.audio import SoundLoader
 from reach_db import get_db_info
-from store_music_setting import last_setting
+from threading import Thread
 import _mysql_exceptions
+import json
 
 
 # Temporary - to create a window about the size of a smart phone screen
 from kivy.config import Config
 Config.set('graphics', 'width', '255')
 Config.set('graphics', 'height', '425')
+
+
+def search_events(searched_value, searched_type, all_events):
+    """
+    Takes the text searched in a search bar and finds all events with any information matching the search
+
+    :param searched_value: the text searched by the user
+    :type: str
+
+    :param searched_type: the instance of MyTextInput with the screen that it belongs to
+    :type: object
+
+    :param all_events: all events taken from the database
+    :type: list
+
+    :return: the events from all events that have information on them that matches the search
+    :rtype: list
+    """
+
+    base_events = all_events
+    new_future_events = list()
+    new_today_events = list()
+    event_nearness = 0 if str(searched_type) == 'MyTextInput_today results' else 1
+    list_destination = new_today_events if event_nearness == 0 else new_future_events
+
+    for info_list in base_events[event_nearness]:
+
+        for event_property_list in info_list:
+
+            for event_property in event_property_list:
+
+                if searched_value.lower() in event_property.lower():
+                    list_destination.append(info_list)
+                    break
+
+            if info_list in list_destination:
+                break
+
+    return [new_today_events, new_future_events, []]
+
+
+def update_live_music_events():
+    """
+    Allows me to update the variable live_music_events anywhere in file
+
+    :return: the updated live_music_events
+    :rtype: list
+    """
+
+    try:
+        new_live_music_events = get_db_info()
+    except _mysql_exceptions.OperationalError:
+        new_live_music_events = [
+            [[('Whoops! No internet connection!', 'Use the refresh button to try again!')]] for i in range(3)
+        ]
+
+    return new_live_music_events
+
+
+class MyTextInput(TextInput):
+    """
+    A search bar for today's events and future's events. Each time text updates, updates the scrolling view.
+
+    :param event_screen: the screen that the text input is held in
+    :type: object
+    """
+
+    def __init__(self, event_screen, **kwargs):
+        super().__init__(**kwargs)
+        self.background_normal = 'Images/button.png'
+        self.background_active = 'Images/button_down.png'
+        self.font_name = font_path
+        self.foreground_color = (0.66, 0.66, 0.66, 1)
+        self.selection_color = (1, 0.23, 0.25, 0.6)
+        self.cursor_color = (1, 0.23, 0.25, 1)
+        self.hint_text = 'Search a date, time, price or location...'
+        self.font_size = 12
+        self.hint_text_color = (0.66, 0.66, 0.66, 1)
+        self.multiline = False
+        self.padding = [7, 9, 5, 6]
+        self.parent_screen = event_screen
+
+    def __str__(self):
+        try:
+            return "MyTextInput_%s" % self.parent_screen.name
+        except AttributeError:
+            return "MyTextInput"
 
 
 class MyLabel(Label):
@@ -54,34 +143,53 @@ class MyScrollingView(ScrollView):
 
     def __init__(self, live_music_num,  **kwargs):
         super().__init__(**kwargs)
+        self.live_music_num = live_music_num
         self.effect_cls = OpacityScrollEffect
-        self.output_string = ''
         self.size = (230, 310)
         self.size_hint = (1, None)
         self.layout_display_results = GridLayout(cols=1, spacing=50, size_hint_y=None, padding=[10, 50])
         self.layout_display_results.bind(minimum_height=self.layout_display_results.setter('height'))
+        self._output_string = ''
+        self.update_event_info()
+        self.add_widget(self.layout_display_results)
 
-        if len(live_music_events[live_music_num]) >= 1:
+    def update_event_info(self, specific_events=None):
 
-            for info_list in live_music_events[live_music_num]:
+        updated_live_music_events = specific_events if specific_events else update_live_music_events()
 
-                self.output_string = ''
+        self.layout_display_results.clear_widgets()
+
+        if len(updated_live_music_events[self.live_music_num]) >= 1:
+
+            for info_list in updated_live_music_events[self.live_music_num]:
+
+                self._output_string = ''
 
                 for event_property_list in info_list:
 
                     for event_property in event_property_list:
 
-                        self.output_string += "{} \n".format(event_property)
+                        if event_property != '-':
+                            self._output_string += "{} \n".format(event_property)
 
-                label_results = MyLabel(text=self.output_string, text_size=[200, None], size_hint_y=None, font_size=10)
+                label_results = MyLabel(text=self._output_string, text_size=[235, None], size_hint_y=None, font_size=10)
                 self.layout_display_results.add_widget(label_results)
 
         else:
-            self.output_string = 'I am sorry, \nI could not find any events!'
-            label_results = MyLabel(text=self.output_string, text_size=[200, None])
+            self._output_string = 'I am sorry, \nI could not find any events!'
+            label_results = MyLabel(text=self._output_string, text_size=[235, None])
             self.layout_display_results.add_widget(label_results)
 
-        self.add_widget(self.layout_display_results)
+        if self.parent is not None:
+            Animation(opacity=1, duration=0.1).start(self.parent.base_scroll_view)
+
+    @classmethod
+    def new_tonights_results(cls):
+        return cls(0)
+
+    @classmethod
+    def new_future_results(cls):
+        return cls(1)
 
 
 class MyScreen(Screen):
@@ -94,7 +202,11 @@ class MyScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.layout_to_home_screen = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5])
+        button_to_home = MyButton.travel('home screen', 'down', text='back')
+        self.layout_to_home_screen.add_widget(button_to_home)
+        self.layout_text_input = AnchorLayout(anchor_x='center', anchor_y='top', padding=[11, 43, 11, 350])
         self.opacity = 0
+        self.instance, self.value = None, None
         self.root = root = self
         root.bind(size=self._update_rect, pos=self._update_rect)
 
@@ -102,12 +214,41 @@ class MyScreen(Screen):
             Color(0.93, 0.93, 0.93, 1)
             self.rect = Rectangle(size=root.size, pos=root.pos)
 
+    def fill_screen(self):
+
+        for screen_element in [self.base_scroll_view, self.layout_to_home_screen, self.layout_text_input]:
+            self.add_widget(screen_element)
+
     def _update_rect(self, *args):
         self.rect.pos = args[0].pos
         self.rect.size = args[0].size
 
-    def get_screen_manager(self, *args):
-        return self.manager
+    @staticmethod
+    def update_events_with_search(instance, value):
+
+        specific_events = search_events(value, instance, live_music_events)
+        input_screen_name = str(instance).split('_')[1]
+
+        update_event_info_thread = Thread(
+            target=main_app.app_screen_manager.get_screen(input_screen_name).base_scroll_view.update_event_info,
+            args=(specific_events,)
+        )
+
+        update_event_info_thread.start()
+
+        while update_event_info_thread.is_alive():
+            pass
+
+    def callback(self, *args):
+        self.update_events_with_search(self.instance, self.value)
+
+    def on_text(self, instance, value):
+
+        self.instance = instance
+        self.value = value
+        fading_animation = Animation(opacity=0, duration=0.1) + Animation()
+        fading_animation.bind(on_complete=lambda *args: self.callback(*args))
+        fading_animation.start(self.base_scroll_view)
 
 
 class MyButton(Button):
@@ -125,50 +266,69 @@ class MyButton(Button):
     :type: str
     """
 
-    def __init__(self, button_usage, manager=None, destination=None, t_direction=None, **kwargs):
+    def __init__(self, button_usage, destination=None, t_direction=None, **kwargs):
         super().__init__(**kwargs)
         all_buttons.append(self)
-        self.usage = button_usage
-        self.manager = manager
-        self.destination = destination
-        self.transition_direction = t_direction
+        self._usage = button_usage
+        self._manager = main_app.app_screen_manager
+        self._destination = destination
+        self._transition_direction = t_direction
+        self._last_position = 0
         self.size_hint = (None, None)
-        self.last_position = 0
         self.background_normal = 'Images/button.png'
         self.background_down = 'Images/button_down.png'
         self.font_name = font_path
-        self.size = (140, 32) if self.usage == 'travel' else (65, 32)
+        self.size = (140, 32) if self._usage == 'travel' else (65, 32)
         self.music_setting = True if last_setting is True else False
         self.color = (0.66, 0.66, 0.66, 1)
 
+    def update_scrolling_view(self, *args):
+
+        update_event_info_today_thread = Thread(
+            target=self._manager.get_screen('today results').base_scroll_view.update_event_info
+        )
+
+        update_event_info_future_thread = Thread(
+            target=self._manager.get_screen('future results').base_scroll_view.update_event_info
+        )
+
+        update_event_info_today_thread.start()
+        update_event_info_future_thread.start()
+
+        while update_event_info_today_thread.is_alive() or update_event_info_future_thread.is_alive():
+            pass
+
+        out_fading_animation = Animation(opacity=1, duration=1.0)
+        hiding_animation = Animation(opacity=0, duration=0.5)
+        out_fading_animation.start(self.parent.parent.parent)
+        hiding_animation.start(self.parent.parent.parent.children[0].children[0])
+
     def changer(self, *args):
-        if self.usage == 'travel':
-            darkening_animation = Animation(opacity=0, duration=0.5)
-            lighting_animation = Animation(opacity=1.0, duration=0.5)
-            darkening_animation.start(self.manager().current_screen)
-            lighting_animation.start(self.manager().get_screen(self.destination))
-            self.manager().current = self.destination
-            self.manager().transition.direction = self.transition_direction
+        if self._usage == 'travel':
+            darkening_animation.start(self._manager.current_screen)
+            lighting_animation.start(self._manager.get_screen(self._destination))
+            self._manager.current = self._destination
+            self._manager.transition.direction = self._transition_direction
 
-        elif self.usage == 'refresh':
-            self.parent.parent.parent.manager.get_screen('today results').canvas.ask_update()
-            self.parent.parent.parent.manager.get_screen('future results').canvas.ask_update()
+        elif self._usage == 'refresh':
 
-        elif self.usage == 'music':
+            fading_animation = Animation(opacity=0.6, duration=0.9) + Animation(duration=0)
+            revealing_animation = Animation(opacity=1, duration=0.4)
+            fading_animation.bind(on_complete=self.update_scrolling_view)
+            fading_animation.start(self.parent.parent.parent)
+            revealing_animation.start(self.parent.parent.parent.children[0].children[0])
+
+        elif self._usage == 'music':
 
             if background_music.state == 'stop':
                 background_music.play()
-                background_music.seek(self.last_position)
-
-                for button in all_buttons:
-                    button.music_setting = True
+                background_music.seek(self._last_position)
+                self._volume_changer(True)
 
             elif background_music.state == 'play':
-                self.last_position = background_music.get_pos()
+                self._last_position = background_music.get_pos()
                 background_music.stop()
-
-                for button in all_buttons:
-                    button.music_setting = False
+                self._volume_changer(False)
 
     def on_press(self):
         button_animation = Animation(size=(self.size[0]-10, self.size[1]-5), duration=0.04) & \
@@ -181,6 +341,16 @@ class MyButton(Button):
         if self.music_setting is True:
             button_sound.play()
 
+    @classmethod
+    def travel(cls, destination, t_direction, **kwargs):
+        return cls('travel', destination, t_direction, **kwargs)
+
+    @staticmethod
+    def _volume_changer(new_music_setting):
+
+        for button in all_buttons:
+            button.music_setting = new_music_setting
+
 
 class HomeScreen(MyScreen):
     """
@@ -190,7 +360,7 @@ class HomeScreen(MyScreen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        title_image = Image(source='Images/best_title_img.png')
+        _title_image = Image(source='Images/best_title_img.png')
 
         layout_today_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, -500])
         layout_future_events = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, -500])
@@ -198,12 +368,15 @@ class HomeScreen(MyScreen):
         layout_title = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5, -350, 5, 350])
         layout_music_refresh = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[0, -500, 35, -500])
         layout_inner_grid = GridLayout(cols=2, height=32, size_hint=(None, None), col_default_width=65, spacing=5)
+        layout_hidden_loading = AnchorLayout(anchor_x='center', anchor_y='center')
 
         button_refresh = MyButton('refresh', text='refresh')
         button_music = MyButton('music', text='music')
-        button_today_events = MyButton('travel', self.get_screen_manager, 'today results', 'up', text="tonight's beat")
-        button_future_events = MyButton('travel', self.get_screen_manager, 'future results', 'up', text="future's beat")
-        button_about = MyButton('travel', self.get_screen_manager, 'about screen', 'up', text='about')
+        button_today_events = MyButton.travel('today results', 'up', text="tonight's beat")
+        button_future_events = MyButton.travel('future results', 'up', text="future's beat")
+        button_about = MyButton.travel('about screen', 'up', text='about')
+
+        label_hidden_loading = MyLabel(text='loading', opacity=0, font_size=23)
 
         layout_inner_grid.add_widget(button_refresh)
         layout_inner_grid.add_widget(button_music)
@@ -211,16 +384,18 @@ class HomeScreen(MyScreen):
         layout_future_events.add_widget(button_future_events)
         layout_today_events.add_widget(button_today_events)
         layout_about.add_widget(button_about)
-        layout_title.add_widget(title_image)
+        layout_title.add_widget(_title_image)
+        layout_hidden_loading.add_widget(label_hidden_loading)
 
-        for layout in [layout_about, layout_future_events, layout_today_events, layout_music_refresh, layout_title]:
+        for layout in [layout_about, layout_future_events, layout_today_events,
+                       layout_music_refresh, layout_title, layout_hidden_loading]:
             self.add_widget(layout)
 
         animation_future = Animation(pos=(0, 575), duration=1.9, t='out_quad')
         animation_today = Animation(pos=(0, 609), duration=1.9, t='out_quad')
         animation_about = Animation(pos=(0, 541), duration=1.9, t='out_quad')
-        animation_title = Animation(pos=(0, -265), duration=2.7, t='out_quad')
         animation_twin_button = Animation(pos=(0, 507), duration=1.9, t='out_quad')
+        animation_title = Animation(pos=(0, -265), duration=2.7, t='out_quad')
         animation_lighting = Animation(opacity=1.0, duration=1.15)
 
         animation_lighting.start(self)
@@ -238,11 +413,12 @@ class TonightResultsScreen(MyScreen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        base_scroll_view = MyScrollingView(0)
-        button_tonight_to_home = MyButton('travel', self.get_screen_manager, 'home screen', 'down', text='back')
-        self.layout_to_home_screen.add_widget(button_tonight_to_home)
-        self.add_widget(base_scroll_view)
-        self.add_widget(self.layout_to_home_screen)
+
+        self.base_scroll_view = MyScrollingView.new_tonights_results()
+        today_text_input = MyTextInput(self)
+        today_text_input.bind(text=self.on_text)
+        self.layout_text_input.add_widget(today_text_input)
+        self.fill_screen()
 
 
 class FutureResultsScreen(MyScreen):
@@ -252,11 +428,12 @@ class FutureResultsScreen(MyScreen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        base_scroll_view = MyScrollingView(1)
-        button_future_to_home = MyButton('travel', self.get_screen_manager, 'home screen', 'down', text='back')
-        self.layout_to_home_screen.add_widget(button_future_to_home)
-        self.add_widget(base_scroll_view)
-        self.add_widget(self.layout_to_home_screen)
+
+        self.base_scroll_view = MyScrollingView.new_future_results()
+        future_text_input = MyTextInput(self)
+        future_text_input.bind(text=self.on_text)
+        self.layout_text_input.add_widget(future_text_input)
+        self.fill_screen()
 
 
 class AboutScreen(MyScreen):
@@ -267,9 +444,7 @@ class AboutScreen(MyScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         layout_display_results = BoxLayout(orientation='vertical', spacing=5, padding=[5])
-        button_tonight_to_home = MyButton('travel', self.get_screen_manager, 'home screen', 'down', text='back')
-        self.layout_to_home_screen.add_widget(button_tonight_to_home)
-        self.output_string = '''
+        self._output_string = '''
 Find The Beat allows it\'s users to locate live music playing in their area,
 while providing them with the key information to attend the event.
 The art for the app was created by Robert Morgan.
@@ -278,7 +453,7 @@ The idea for the app was provided by Jon Czernel.
 The web scraping functionality and the app itself was created by Logan Czernel.
 Built with Python. Modules: Kivy, BeautifulSoup and Requests.
 '''
-        label_results = MyLabel(text=self.output_string, font_size=10, text_size=[200, 200], halign='center')
+        label_results = MyLabel(text=self._output_string, font_size=10, text_size=[200, 200], halign='center')
         layout_display_results.add_widget(label_results)
         self.add_widget(layout_display_results)
         self.add_widget(self.layout_to_home_screen)
@@ -292,35 +467,40 @@ class MyApp(App):
     :return app_screen_manager: the screen manager of all the screens in the app
     :rtype: object
     """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._app_screen_manager = ScreenManager(transition=SlideTransition(duration=0.25))
 
     def build(self):
-        app_screen_manager = ScreenManager(transition=SlideTransition(duration=0.25))
         home_screen = HomeScreen(name='home screen')
         today_results_screen = TonightResultsScreen(name='today results')
         future_results_screen = FutureResultsScreen(name='future results')
         about_screen = AboutScreen(name='about screen')
 
         for app_screen in [home_screen, today_results_screen, future_results_screen, about_screen]:
-            app_screen_manager.add_widget(app_screen)
+            self._app_screen_manager.add_widget(app_screen)
 
         self.title = 'Find The Beat'
 
-        return app_screen_manager
+        return self._app_screen_manager
+
+    @property
+    def app_screen_manager(self):
+        return self._app_screen_manager
 
 
 if __name__ == '__main__':
 
-    try:
-        live_music_events = get_db_info()
-    except _mysql_exceptions.OperationalError as oe:
-        live_music_events = [
-            [[('Whoops! No internet connection!', 'Connect me to the internet and reboot the app!')]] for i in range(3)
-        ]
-
+    darkening_animation = Animation(opacity=0, duration=0.5)
+    lighting_animation = Animation(opacity=1.0, duration=0.5)
+    live_music_events = update_live_music_events()
     all_buttons = []
     font_path = 'Font/Raleway-Regular.ttf'
     background_music = SoundLoader.load('Sounds/Sophomore_Makeout.mp3')
     button_sound = SoundLoader.load('Sounds/buttonsound.wav')
+
+    with open('final_setting.json') as fs:
+        last_setting = json.load(fs).get('last_setting')
 
     if button_sound:
         button_sound.volume = 0.25
@@ -331,4 +511,9 @@ if __name__ == '__main__':
         if last_setting is True:
             background_music.play()
 
-    MyApp().run()
+    main_app = MyApp()
+    main_app.run()
+
+    with open('final_setting.json', 'w') as fs:
+        music_data = main_app.app_screen_manager.get_screen('home screen').children[4].children[0].music_setting
+        json.dump({"last_setting": music_data}, fs)
