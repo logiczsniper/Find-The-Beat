@@ -5,6 +5,7 @@ Returns the relevant data(the data for today and all foreseeable events)
 
 
 from datetime import datetime
+from day_month_strings import MonthFullNames
 from scrapers_malahide import get_duffys_events
 from scrapers_malahide import get_gibneys_events
 from scrapers_swords import get_old_school_house_events
@@ -13,6 +14,29 @@ from scrapers_swords import get_theestuary_events
 
 now = datetime.now()
 weekday = now.strftime("%A")
+
+
+def convert_month_to_int(input_month):
+    """
+    Takes the str month name and converts it to a numbered output depending on the month given, e.g.
+    'June' -> 6
+
+    :param input_month: str name of a month
+    :type: str
+
+    :return: the int equivalent of the input_month, upon failure returns 0
+    :rtype: int
+    """
+    lowered_month = input_month.lower()
+    formatted_month = lowered_month.capitalize()
+    month_full_names_items = MonthFullNames.__dict__.items()
+    month_names = [value for key, value in month_full_names_items if type(value) == str and not value.startswith('__')]
+
+    for counter, full_month in enumerate(month_names):
+        if formatted_month == full_month:
+            return counter
+
+    return 0
 
 
 def locate_month_string(split_date_list):
@@ -25,7 +49,7 @@ def locate_month_string(split_date_list):
     :return: the string value of the month
     :rtype: str
 
-    :return: upon not successfully finding the day value, return '0'
+    :return: upon not successfully finding the month value, return '0'
     :rtype: str
     """
 
@@ -84,11 +108,12 @@ def edit_date_status(events_list):
         if data_dict_list not in new_all_events:
 
             try:
-                if weekday in date_of_event and str(now.day) in date_of_event[:-4]:
+                if weekday in date_of_event and str(now.day) == str(locate_day_number(date_of_event.split(' '))):
                     data_dict_list[0].get('event_info')['event_date_status'] = 'today'
                 elif locate_day_number(date_of_event.split(' ')) != 0 \
                         and now.day > locate_day_number(date_of_event.split(' ')) \
-                        and now.strftime("%B").lower() in locate_month_string(date_of_event.split(' ')):
+                        and now.strftime("%B").lower() in locate_month_string(date_of_event.split(' ')) \
+                        or now.month > convert_month_to_int(locate_month_string(date_of_event.split(' '))):
                     data_dict_list[0].get('event_info')['event_date_status'] = 'past'
                 else:
                     data_dict_list[0].get('event_info')['event_date_status'] = 'future'

@@ -7,13 +7,14 @@ All possible arguments for *args and **kwargs for each usage can be found in the
 https://kivy.org/docs/api-kivy.html
 """
 
-
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.gridlayout import GridLayout
-from kivy.graphics import Rectangle, Color
+from kivy.uix.floatlayout import FloatLayout
+from kivy.graphics import Rectangle, Color, Canvas
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
+from kivy.graphics.context_instructions import PushMatrix, PopMatrix, Rotate
 from kivy.uix.textinput import TextInput
 from kivy.uix.label import Label
 from kivy.animation import Animation
@@ -22,16 +23,13 @@ from kivy.uix.image import Image
 from kivy.uix.scrollview import ScrollView
 from kivy.effects.opacityscroll import OpacityScrollEffect
 from kivy.core.audio import SoundLoader
+from kivy.core.window import Window
+from kivy.properties import NumericProperty
+from kivy.utils import escape_markup
 from reach_db import get_db_info
 from threading import Thread
 import _mysql_exceptions
 import json
-
-
-# Temporary - to create a window about the size of a smart phone screen
-from kivy.config import Config
-Config.set('graphics', 'width', '255')
-Config.set('graphics', 'height', '425')
 
 
 def search_events(searched_value, searched_type, all_events):
@@ -75,7 +73,7 @@ def search_events(searched_value, searched_type, all_events):
 
 def update_live_music_events():
     """
-    Allows me to update the variable live_music_events anywhere in file
+    Allows me to update the variable live_music_events anywhere in file with error handling
 
     :return: the updated live_music_events
     :rtype: list
@@ -89,6 +87,40 @@ def update_live_music_events():
         ]
 
     return new_live_music_events
+
+
+class MyLoader(FloatLayout):
+    """
+    This class contains the methods necessary to rotate an image with kivy. To be used for all the loading animations
+    which entail using rotating arrows.
+    """
+
+    angle = NumericProperty(0)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.root = root = self
+        self.root.canvas = Canvas()
+        root.bind(angle=self.on_angle)
+
+        self.rotate_animation = Animation(angle=0.5, duration=1)
+        self.rotate_animation.start(self)
+
+    def on_angle(self, item, angle):
+        item.rotate_animation.stop(self)
+        item.rotate_animation = Animation(angle=1, duration=0.00001)
+        item.rotate_animation.start(self)
+
+        if int(angle * 360) == 360:
+            item.rotate_animation += Animation(angle=angle + 1, duration=0.00001)
+            item.rotate_animation.start(self)
+
+        with self.root.canvas.before:
+            PushMatrix()
+            Rotate(angle=angle, axis=(0, 0, 1), origin=self.root.center)
+        with self.root.canvas.after:
+            PopMatrix()
 
 
 class MyTextInput(TextInput):
@@ -107,12 +139,15 @@ class MyTextInput(TextInput):
         self.foreground_color = (0.66, 0.66, 0.66, 1)
         self.selection_color = (1, 0.23, 0.25, 0.6)
         self.cursor_color = (1, 0.23, 0.25, 1)
-        self.hint_text = 'Search a date, time, price or location...'
-        self.font_size = 12
+        self.hint_text = 'search'
+        self.font_size = 15
+        self.size = (67.5, 32)
+        self.size_hint = (None, None)
         self.hint_text_color = (0.66, 0.66, 0.66, 1)
         self.multiline = False
-        self.padding = [7, 9, 5, 6]
+        self.padding = [10, 7, 0, 7]
         self.parent_screen = event_screen
+        self.text = last_today_search if self.parent_screen.name == 'today results' else last_future_search
 
     def __str__(self):
         try:
@@ -123,7 +158,7 @@ class MyTextInput(TextInput):
 
 class MyLabel(Label):
     """
-    Sets the colour of the text and font of text to avoid repeating myself for each label (they are all the same)
+    Sets the colour of the text and font of text to avoid repeating lines for each label (they are all the same)
     """
 
     def __init__(self, **kwargs):
@@ -141,13 +176,13 @@ class MyScrollingView(ScrollView):
     :type: int
     """
 
-    def __init__(self, live_music_num,  **kwargs):
+    def __init__(self, live_music_num, **kwargs):
         super().__init__(**kwargs)
         self.live_music_num = live_music_num
         self.effect_cls = OpacityScrollEffect
         self.size = (230, 310)
         self.size_hint = (1, None)
-        self.layout_display_results = GridLayout(cols=1, spacing=50, size_hint_y=None, padding=[10, 50])
+        self.layout_display_results = GridLayout(cols=1, spacing=25, size_hint_y=None, padding=[10, 70, 10, 20])
         self.layout_display_results.bind(minimum_height=self.layout_display_results.setter('height'))
         self._output_string = ''
         self.update_event_info()
@@ -156,7 +191,6 @@ class MyScrollingView(ScrollView):
     def update_event_info(self, specific_events=None):
 
         updated_live_music_events = specific_events if specific_events else update_live_music_events()
-
         self.layout_display_results.clear_widgets()
 
         if len(updated_live_music_events[self.live_music_num]) >= 1:
@@ -164,20 +198,48 @@ class MyScrollingView(ScrollView):
             for info_list in updated_live_music_events[self.live_music_num]:
 
                 self._output_string = ''
+                combined_event_info_list = list()
 
                 for event_property_list in info_list:
+                    combined_event_info_list.extend(event_property_list)
 
-                    for event_property in event_property_list:
+                if len(combined_event_info_list) != 2:
+                    event_date = combined_event_info_list[0]
+                    event_time = combined_event_info_list[1]
+                    event_cost = combined_event_info_list[2]
+                    event_artist = combined_event_info_list[3]
+                    event_venue = combined_event_info_list[5]
+                    event_address = combined_event_info_list[6]
+                    event_url = combined_event_info_list[7]
 
-                        if event_property != '-':
-                            self._output_string += "{} \n".format(event_property)
+                    for event_detail in [event_artist, event_date, event_time, event_cost, event_venue,
+                                         event_address, event_url]:
+                        cleaned_event_detail = str(event_detail).lower().strip().title()
+                        if cleaned_event_detail != '-' and cleaned_event_detail not in self._output_string:
+                            self._output_string += "{} \n".format(cleaned_event_detail)
 
-                label_results = MyLabel(text=self._output_string, text_size=[235, None], size_hint_y=None, font_size=10)
-                self.layout_display_results.add_widget(label_results)
+                    artist = self._output_string.split('\n')[0]
+                    if info_list != updated_live_music_events[self.live_music_num][-1]:
+                        self._output_string += '------------------------------------'
+                    label_results = MyLabel(
+                        text='[font=Font/Raleway-SemiBold.ttf]' +
+                             escape_markup(artist) + '[/font]' +
+                             self._output_string[len(artist)::],
+                        markup=True, text_size=[Window.width - 10, None], size_hint_y=None, font_size=10,
+                        halign='center'
+                    )
+                    self.layout_display_results.add_widget(label_results)
+                else:
+                    for sentence in combined_event_info_list:
+                        if sentence not in self._output_string:
+                            self._output_string += sentence + ' '
+                    label_results = MyLabel(text=self._output_string, text_size=[Window.width - 10, None],
+                                            halign='center')
+                    self.layout_display_results.add_widget(label_results)
 
         else:
             self._output_string = 'I am sorry, \nI could not find any events!'
-            label_results = MyLabel(text=self._output_string, text_size=[235, None])
+            label_results = MyLabel(text=self._output_string, text_size=[Window.width - 10, None], halign='center')
             self.layout_display_results.add_widget(label_results)
 
         if self.parent is not None:
@@ -201,10 +263,11 @@ class MyScreen(Screen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.layout_to_home_screen = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5])
-        button_to_home = MyButton.travel('home screen', 'down', text='back')
-        self.layout_to_home_screen.add_widget(button_to_home)
-        self.layout_text_input = AnchorLayout(anchor_x='center', anchor_y='top', padding=[11, 43, 11, 350])
+        self.button_to_home = MyButton('travel to home', 'home screen', 'down', text='back')
+        self.layout_text_input = AnchorLayout(anchor_x='center', anchor_y='top', padding=[11, 93, 11, 299])
+        self.layout_back_search = AnchorLayout(anchor_x='center', anchor_y='top', padding=[0, 5, 32, 5])
+        self.layout_inner_grid = GridLayout(cols=2, height=32, size_hint=(None, None), col_default_width=65, spacing=3)
+        self.layout_back_search.add_widget(self.layout_inner_grid)
         self.opacity = 0
         self.instance, self.value = None, None
         self.root = root = self
@@ -215,9 +278,9 @@ class MyScreen(Screen):
             self.rect = Rectangle(size=root.size, pos=root.pos)
 
     def fill_screen(self):
-
-        for screen_element in [self.base_scroll_view, self.layout_to_home_screen, self.layout_text_input]:
-            self.add_widget(screen_element)
+        self.layout_inner_grid.add_widget(self.button_to_home)
+        self.add_widget(self.layout_back_search)
+        self.add_widget(self.base_scroll_view)
 
     def _update_rect(self, *args):
         self.rect.pos = args[0].pos
@@ -225,7 +288,6 @@ class MyScreen(Screen):
 
     @staticmethod
     def update_events_with_search(instance, value):
-
         specific_events = search_events(value, instance, live_music_events)
         input_screen_name = str(instance).split('_')[1]
 
@@ -243,7 +305,6 @@ class MyScreen(Screen):
         self.update_events_with_search(self.instance, self.value)
 
     def on_text(self, instance, value):
-
         self.instance = instance
         self.value = value
         fading_animation = Animation(opacity=0, duration=0.1) + Animation()
@@ -277,8 +338,9 @@ class MyButton(Button):
         self.size_hint = (None, None)
         self.background_normal = 'Images/button.png'
         self.background_down = 'Images/button_down.png'
+        self.border = (0, 0, 0, 0)
         self.font_name = font_path
-        self.size = (140, 32) if self._usage == 'travel' else (65, 32)
+        self.size = (140, 32) if self._usage == 'travel' else (67.5, 32)
         self.music_setting = True if last_setting is True else False
         self.color = (0.66, 0.66, 0.66, 1)
 
@@ -301,10 +363,11 @@ class MyButton(Button):
         out_fading_animation = Animation(opacity=1, duration=1.0)
         hiding_animation = Animation(opacity=0, duration=0.5)
         out_fading_animation.start(self.parent.parent.parent)
-        hiding_animation.start(self.parent.parent.parent.children[0].children[0])
+        hiding_animation.start(self.parent.parent.parent.children[0].children[1])
+        hiding_animation.start(self.parent.parent.parent.children[0].children[0].children[0])
 
     def changer(self, *args):
-        if self._usage == 'travel':
+        if 'travel' in self._usage:
             darkening_animation.start(self._manager.current_screen)
             lighting_animation.start(self._manager.get_screen(self._destination))
             self._manager.current = self._destination
@@ -316,7 +379,8 @@ class MyButton(Button):
             revealing_animation = Animation(opacity=1, duration=0.4)
             fading_animation.bind(on_complete=self.update_scrolling_view)
             fading_animation.start(self.parent.parent.parent)
-            revealing_animation.start(self.parent.parent.parent.children[0].children[0])
+            revealing_animation.start(self.parent.parent.parent.children[0].children[1])
+            revealing_animation.start(self.parent.parent.parent.children[0].children[0].children[0])
 
         elif self._usage == 'music':
 
@@ -331,7 +395,7 @@ class MyButton(Button):
                 self._volume_changer(False)
 
     def on_press(self):
-        button_animation = Animation(size=(self.size[0]-10, self.size[1]-5), duration=0.04) & \
+        button_animation = Animation(size=(self.size[0] - 10, self.size[1] - 5), duration=0.04) & \
                            Animation(font_size=7, duration=0.04) + \
                            Animation(size=(self.size[0], self.size[1]), duration=0.04) & \
                            Animation(font_size=self.font_size, duration=0.04)
@@ -367,7 +431,7 @@ class HomeScreen(MyScreen):
         layout_about = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[5, -500])
         layout_title = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5, -350, 5, 350])
         layout_music_refresh = AnchorLayout(anchor_x='center', anchor_y='bottom', padding=[0, -500, 35, -500])
-        layout_inner_grid = GridLayout(cols=2, height=32, size_hint=(None, None), col_default_width=65, spacing=5)
+        layout_inner_grid = GridLayout(cols=2, height=32, size_hint=(None, None), col_default_width=65, spacing=3)
         layout_hidden_loading = AnchorLayout(anchor_x='center', anchor_y='center')
 
         button_refresh = MyButton('refresh', text='refresh')
@@ -376,16 +440,19 @@ class HomeScreen(MyScreen):
         button_future_events = MyButton.travel('future results', 'up', text="future's beat")
         button_about = MyButton.travel('about screen', 'up', text='about')
 
-        label_hidden_loading = MyLabel(text='loading', opacity=0, font_size=23)
+        label_hidden_loading = MyLabel(text='loading', opacity=0, font_size=17)
+        image_hidden_loading = Image(size_hint=[None, None], source='Images/arrow.png',
+                                     pos_hint={'center_x': 0.5, 'center_y': 0.5}, opacity=0)
+        rotating_hidden_layout = MyLoader()
+        rotating_hidden_layout.add_widget(image_hidden_loading)
 
-        layout_inner_grid.add_widget(button_refresh)
-        layout_inner_grid.add_widget(button_music)
-        layout_music_refresh.add_widget(layout_inner_grid)
-        layout_future_events.add_widget(button_future_events)
-        layout_today_events.add_widget(button_today_events)
-        layout_about.add_widget(button_about)
-        layout_title.add_widget(_title_image)
-        layout_hidden_loading.add_widget(label_hidden_loading)
+        for layout, widget in zip([layout_inner_grid, layout_inner_grid, layout_music_refresh, layout_future_events,
+                                   layout_today_events, layout_about, layout_title, layout_hidden_loading,
+                                   layout_hidden_loading],
+                                  [button_refresh, button_music, layout_inner_grid, button_future_events,
+                                   button_today_events, button_about, _title_image, label_hidden_loading,
+                                   rotating_hidden_layout]):
+            layout.add_widget(widget)
 
         for layout in [layout_about, layout_future_events, layout_today_events,
                        layout_music_refresh, layout_title, layout_hidden_loading]:
@@ -398,12 +465,11 @@ class HomeScreen(MyScreen):
         animation_title = Animation(pos=(0, -265), duration=2.7, t='out_quad')
         animation_lighting = Animation(opacity=1.0, duration=1.15)
 
-        animation_lighting.start(self)
-        animation_twin_button.start(layout_music_refresh)
-        animation_about.start(layout_about)
-        animation_future.start(layout_future_events)
-        animation_today.start(layout_today_events)
-        animation_title.start(layout_title)
+        for animation, layout in zip([animation_lighting, animation_twin_button, animation_about,
+                                      animation_future, animation_today, animation_title],
+                                     [self, layout_music_refresh, layout_about,
+                                      layout_future_events, layout_today_events, layout_title]):
+            animation.start(layout)
 
 
 class TonightResultsScreen(MyScreen):
@@ -417,13 +483,13 @@ class TonightResultsScreen(MyScreen):
         self.base_scroll_view = MyScrollingView.new_tonights_results()
         today_text_input = MyTextInput(self)
         today_text_input.bind(text=self.on_text)
-        self.layout_text_input.add_widget(today_text_input)
+        self.layout_inner_grid.add_widget(today_text_input)
         self.fill_screen()
 
 
 class FutureResultsScreen(MyScreen):
     """
-    Displays all the results from get_events_malahide()
+    Displays all the results from get_events_malahide() that are on in the future
     """
 
     def __init__(self, **kwargs):
@@ -432,7 +498,7 @@ class FutureResultsScreen(MyScreen):
         self.base_scroll_view = MyScrollingView.new_future_results()
         future_text_input = MyTextInput(self)
         future_text_input.bind(text=self.on_text)
-        self.layout_text_input.add_widget(future_text_input)
+        self.layout_inner_grid.add_widget(future_text_input)
         self.fill_screen()
 
 
@@ -454,9 +520,12 @@ The web scraping functionality and the app itself was created by Logan Czernel.
 Built with Python. Modules: Kivy, BeautifulSoup and Requests.
 '''
         label_results = MyLabel(text=self._output_string, font_size=10, text_size=[200, 200], halign='center')
-        layout_display_results.add_widget(label_results)
-        self.add_widget(layout_display_results)
-        self.add_widget(self.layout_to_home_screen)
+        self.layout_to_home_screen = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5])
+
+        for page_item, widget in zip([self.layout_to_home_screen, layout_display_results, self, self],
+                                     [self.button_to_home, label_results, layout_display_results,
+                                      self.layout_to_home_screen]):
+            page_item.add_widget(widget)
 
 
 class MyApp(App):
@@ -467,6 +536,7 @@ class MyApp(App):
     :return app_screen_manager: the screen manager of all the screens in the app
     :rtype: object
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._app_screen_manager = ScreenManager(transition=SlideTransition(duration=0.25))
@@ -496,24 +566,33 @@ if __name__ == '__main__':
     live_music_events = update_live_music_events()
     all_buttons = []
     font_path = 'Font/Raleway-Regular.ttf'
-    background_music = SoundLoader.load('Sounds/Sophomore_Makeout.mp3')
+    background_music = SoundLoader.load('Sounds/backgroundmusic.wav')
     button_sound = SoundLoader.load('Sounds/buttonsound.wav')
 
-    with open('final_setting.json') as fs:
-        last_setting = json.load(fs).get('last_setting')
+    with open('user_settings.json') as fs:
+        json_data = json.load(fs)
+        last_setting = json_data.get('music_active')
+        previous_searches = json_data.get('user_searches')
+        last_today_search = previous_searches.get('search_today')
+        last_future_search = previous_searches.get('search_future')
 
     if button_sound:
-        button_sound.volume = 0.25
+        button_sound.volume = 0.1
 
     if background_music:
         background_music.loop = True
-        background_music.volume = 0.3
+        background_music.volume = 0.5
         if last_setting is True:
             background_music.play()
 
     main_app = MyApp()
     main_app.run()
 
-    with open('final_setting.json', 'w') as fs:
+    with open('user_settings.json', 'w') as fs:
         music_data = main_app.app_screen_manager.get_screen('home screen').children[4].children[0].music_setting
-        json.dump({"last_setting": music_data}, fs)
+        last_today_text = main_app.app_screen_manager.get_screen('today results').children[1].children[0].children[
+            1].text
+        last_future_text = main_app.app_screen_manager.get_screen('future results').children[1].children[0].children[
+            1].text
+        json.dump({"music_active": music_data,
+                   "user_searches": {"search_today": last_today_text, "search_future": last_future_text}}, fs)
