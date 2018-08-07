@@ -133,8 +133,8 @@ class MyTextInput(TextInput):
 
     def __init__(self, event_screen, **kwargs):
         super().__init__(**kwargs)
-        self.background_normal = 'Images/button.png'
-        self.background_active = 'Images/button_down.png'
+        self.background_normal = 'Images/small_button.png'
+        self.background_active = 'Images/small_button_down.png'
         self.font_name = font_path
         self.foreground_color = (0.66, 0.66, 0.66, 1)
         self.selection_color = (1, 0.23, 0.25, 0.6)
@@ -263,7 +263,7 @@ class MyScreen(Screen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.button_to_home = MyButton('travel to home', 'home screen', 'down', text='back')
+        self.button_to_home = MyButton('travel to home', 'home screen', 'down')
         self.layout_text_input = AnchorLayout(anchor_x='center', anchor_y='top', padding=[11, 93, 11, 299])
         self.layout_back_search = AnchorLayout(anchor_x='center', anchor_y='top', padding=[0, 5, 32, 5])
         self.layout_inner_grid = GridLayout(cols=2, height=32, size_hint=(None, None), col_default_width=65, spacing=3)
@@ -336,8 +336,26 @@ class MyButton(Button):
         self._transition_direction = t_direction
         self._last_position = 0
         self.size_hint = (None, None)
-        self.background_normal = 'Images/button.png'
-        self.background_down = 'Images/button_down.png'
+
+        if self._usage == 'travel to home':
+            self.background_normal = 'Images/small_button_arrow_up.png'
+            self.background_down = 'Images/small_button_arrow_down.png'
+        elif self._usage == 'music_change':
+
+            if background_music.state == 'stop':
+                self.background_normal = 'Images/small_button_volume_off.png'
+            elif background_music.state == 'play':
+                self.background_normal = 'Images/small_button_volume_on.png'
+
+            self.background_down = 'Images/small_button_volume_mid.png'
+
+        elif self._usage == 'travel':
+            self.background_normal = 'Images/large_button.png'
+            self.background_down = 'Images/large_button_down.png'
+        else:
+            self.background_normal = 'Images/small_button.png'
+            self.background_down = 'Images/small_button_down.png'
+
         self.border = (0, 0, 0, 0)
         self.font_name = font_path
         self.size = (140, 32) if self._usage == 'travel' else (67.5, 32)
@@ -363,7 +381,6 @@ class MyButton(Button):
         out_fading_animation = Animation(opacity=1, duration=1.0)
         hiding_animation = Animation(opacity=0, duration=0.5)
         out_fading_animation.start(self.parent.parent.parent)
-        hiding_animation.start(self.parent.parent.parent.children[0].children[1])
         hiding_animation.start(self.parent.parent.parent.children[0].children[0].children[0])
 
     def changer(self, *args):
@@ -379,22 +396,24 @@ class MyButton(Button):
             revealing_animation = Animation(opacity=1, duration=0.4)
             fading_animation.bind(on_complete=self.update_scrolling_view)
             fading_animation.start(self.parent.parent.parent)
-            revealing_animation.start(self.parent.parent.parent.children[0].children[1])
             revealing_animation.start(self.parent.parent.parent.children[0].children[0].children[0])
 
-        elif self._usage == 'music':
+        elif self._usage == 'music_change':
 
             if background_music.state == 'stop':
                 background_music.play()
+                self.background_normal = 'Images/small_button_volume_on.png'
                 background_music.seek(self._last_position)
                 self._volume_changer(True)
 
             elif background_music.state == 'play':
                 self._last_position = background_music.get_pos()
                 background_music.stop()
+                self.background_normal = 'Images/small_button_volume_off.png'
                 self._volume_changer(False)
 
     def on_press(self):
+
         button_animation = Animation(size=(self.size[0] - 10, self.size[1] - 5), duration=0.04) & \
                            Animation(font_size=7, duration=0.04) + \
                            Animation(size=(self.size[0], self.size[1]), duration=0.04) & \
@@ -435,22 +454,20 @@ class HomeScreen(MyScreen):
         layout_hidden_loading = AnchorLayout(anchor_x='center', anchor_y='center')
 
         button_refresh = MyButton('refresh', text='refresh')
-        button_music = MyButton('music', text='music')
+        button_music = MyButton('music_change')
         button_today_events = MyButton.travel('today results', 'up', text="tonight's beat")
         button_future_events = MyButton.travel('future results', 'up', text="future's beat")
         button_about = MyButton.travel('about screen', 'up', text='about')
 
-        label_hidden_loading = MyLabel(text='loading', opacity=0, font_size=17)
         image_hidden_loading = Image(size_hint=[None, None], source='Images/arrow.png',
                                      pos_hint={'center_x': 0.5, 'center_y': 0.5}, opacity=0)
         rotating_hidden_layout = MyLoader()
         rotating_hidden_layout.add_widget(image_hidden_loading)
 
         for layout, widget in zip([layout_inner_grid, layout_inner_grid, layout_music_refresh, layout_future_events,
-                                   layout_today_events, layout_about, layout_title, layout_hidden_loading,
-                                   layout_hidden_loading],
+                                   layout_today_events, layout_about, layout_title, layout_hidden_loading],
                                   [button_refresh, button_music, layout_inner_grid, button_future_events,
-                                   button_today_events, button_about, _title_image, label_hidden_loading,
+                                   button_today_events, button_about, _title_image,
                                    rotating_hidden_layout]):
             layout.add_widget(widget)
 
