@@ -1,7 +1,7 @@
 # Find The Beat Android App
 
 ### Introducing findthebeat
-This app tries to solve a struggle- the struggle of finding local live music. In many smaller towns (and less known bands) the pub/bar websites are a mess to navigate and even less consistent. Enter findthebeat. Findthebeat navigates the websites of every available pub/bar for you, and displays the information regarding live music effectively. The app's database is updated frequently so you never miss a beat.
+This app tries to solve a struggle- the struggle of finding local live music. In many smaller towns (with lesser known bands) the pub/bar websites are a mess to navigate and even less consistent. Enter findthebeat. Findthebeat navigates the websites of every available pub/bar for you, and displays the information regarding live music effectively. The app's database is updated frequently so you never miss a beat.
 
 ### Prerequisites
 All you simply need is Python 3 or greater and Kivy 1.10.0 or greater (a Python library), or find the app on the Google Play store. The following is for running on a Windows machine.
