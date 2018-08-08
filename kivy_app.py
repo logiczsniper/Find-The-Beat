@@ -7,29 +7,31 @@ All possible arguments for *args and **kwargs for each usage can be found in the
 https://kivy.org/docs/api-kivy.html
 """
 
-from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.floatlayout import FloatLayout
-from kivy.graphics import Rectangle, Color, Canvas
-from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
-from kivy.graphics.context_instructions import PushMatrix, PopMatrix, Rotate
-from kivy.uix.textinput import TextInput
-from kivy.uix.label import Label
+import json
+from threading import Thread
+
+import _mysql_exceptions
 from kivy.animation import Animation
-from kivy.uix.button import Button
-from kivy.uix.image import Image
-from kivy.uix.scrollview import ScrollView
-from kivy.effects.opacityscroll import OpacityScrollEffect
+from kivy.app import App
 from kivy.core.audio import SoundLoader
 from kivy.core.window import Window
+from kivy.effects.opacityscroll import OpacityScrollEffect
+from kivy.graphics import Rectangle, Color, Canvas
+from kivy.graphics.context_instructions import PushMatrix, PopMatrix, Rotate
 from kivy.properties import NumericProperty
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.image import Image
+from kivy.uix.label import Label
+from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.textinput import TextInput
 from kivy.utils import escape_markup
+
 from reach_db import get_db_info
-from threading import Thread
-import _mysql_exceptions
-import json
 
 
 def search_events(searched_value, searched_type, all_events):
@@ -133,8 +135,8 @@ class MyTextInput(TextInput):
 
     def __init__(self, event_screen, **kwargs):
         super().__init__(**kwargs)
-        self.background_normal = 'Images/small_button.png'
-        self.background_active = 'Images/small_button_down.png'
+        self.background_normal = 'Images/buttons/small_button.png'
+        self.background_active = 'Images/buttons/small_button_down.png'
         self.font_name = font_path
         self.foreground_color = (0.66, 0.66, 0.66, 1)
         self.selection_color = (1, 0.23, 0.25, 0.6)
@@ -268,6 +270,8 @@ class MyScreen(Screen):
         self.layout_back_search = AnchorLayout(anchor_x='center', anchor_y='top', padding=[0, 5, 32, 5])
         self.layout_inner_grid = GridLayout(cols=2, height=32, size_hint=(None, None), col_default_width=65, spacing=3)
         self.layout_back_search.add_widget(self.layout_inner_grid)
+        self.layout_hidden = AnchorLayout(anchor_x='center', anchor_y='center', opacity=0)
+        self.searching_animation = Animation(opacity=0.58, duration=0.15) + Animation(opacity=0, duration=0.15)
         self.opacity = 0
         self.instance, self.value = None, None
         self.root = root = self
@@ -279,8 +283,10 @@ class MyScreen(Screen):
 
     def fill_screen(self):
         self.layout_inner_grid.add_widget(self.button_to_home)
+        self.layout_hidden.add_widget(Image(source='Images/icons/search_icon.png'))
         self.add_widget(self.layout_back_search)
         self.add_widget(self.base_scroll_view)
+        self.add_widget(self.layout_hidden)
 
     def _update_rect(self, *args):
         self.rect.pos = args[0].pos
@@ -307,6 +313,7 @@ class MyScreen(Screen):
     def on_text(self, instance, value):
         self.instance = instance
         self.value = value
+        self.searching_animation.start(self.layout_hidden)
         fading_animation = Animation(opacity=0, duration=0.1) + Animation()
         fading_animation.bind(on_complete=lambda *args: self.callback(*args))
         fading_animation.start(self.base_scroll_view)
@@ -338,23 +345,27 @@ class MyButton(Button):
         self.size_hint = (None, None)
 
         if self._usage == 'travel to home':
-            self.background_normal = 'Images/small_button_arrow_up.png'
-            self.background_down = 'Images/small_button_arrow_down.png'
+            self.background_normal = 'Images/buttons/small_button_arrow_up.png'
+            self.background_down = 'Images/buttons/small_button_arrow_down.png'
         elif self._usage == 'music_change':
 
             if background_music.state == 'stop':
-                self.background_normal = 'Images/small_button_volume_off.png'
+                self.background_normal = 'Images/buttons/small_button_volume_off.png'
             elif background_music.state == 'play':
-                self.background_normal = 'Images/small_button_volume_on.png'
+                self.background_normal = 'Images/buttons/small_button_volume_on.png'
 
-            self.background_down = 'Images/small_button_volume_mid.png'
+            self.background_down = 'Images/buttons/small_button_volume_mid.png'
+
+        elif self._usage == 'refresh':
+            self.background_normal = 'Images/buttons/small_button_refresh_up.png'
+            self.background_down = 'Images/buttons/small_button_refresh_down.png'
 
         elif self._usage == 'travel':
-            self.background_normal = 'Images/large_button.png'
-            self.background_down = 'Images/large_button_down.png'
+            self.background_normal = 'Images/buttons/large_button.png'
+            self.background_down = 'Images/buttons/large_button_down.png'
         else:
-            self.background_normal = 'Images/small_button.png'
-            self.background_down = 'Images/small_button_down.png'
+            self.background_normal = 'Images/buttons/small_button.png'
+            self.background_down = 'Images/buttons/small_button_down.png'
 
         self.border = (0, 0, 0, 0)
         self.font_name = font_path
@@ -401,15 +412,15 @@ class MyButton(Button):
         elif self._usage == 'music_change':
 
             if background_music.state == 'stop':
+                self.background_normal = 'Images/buttons/small_button_volume_on.png'
                 background_music.play()
-                self.background_normal = 'Images/small_button_volume_on.png'
                 background_music.seek(self._last_position)
                 self._volume_changer(True)
 
             elif background_music.state == 'play':
+                self.background_normal = 'Images/buttons/small_button_volume_off.png'
                 self._last_position = background_music.get_pos()
                 background_music.stop()
-                self.background_normal = 'Images/small_button_volume_off.png'
                 self._volume_changer(False)
 
     def on_press(self):
@@ -453,13 +464,13 @@ class HomeScreen(MyScreen):
         layout_inner_grid = GridLayout(cols=2, height=32, size_hint=(None, None), col_default_width=65, spacing=3)
         layout_hidden_loading = AnchorLayout(anchor_x='center', anchor_y='center')
 
-        button_refresh = MyButton('refresh', text='refresh')
+        button_refresh = MyButton('refresh')
         button_music = MyButton('music_change')
         button_today_events = MyButton.travel('today results', 'up', text="tonight's beat")
         button_future_events = MyButton.travel('future results', 'up', text="future's beat")
         button_about = MyButton.travel('about screen', 'up', text='about')
 
-        image_hidden_loading = Image(size_hint=[None, None], source='Images/arrow.png',
+        image_hidden_loading = Image(size_hint=[None, None], source='Images/icons/arrow.png',
                                      pos_hint={'center_x': 0.5, 'center_y': 0.5}, opacity=0)
         rotating_hidden_layout = MyLoader()
         rotating_hidden_layout.add_widget(image_hidden_loading)
@@ -607,9 +618,9 @@ if __name__ == '__main__':
 
     with open('user_settings.json', 'w') as fs:
         music_data = main_app.app_screen_manager.get_screen('home screen').children[4].children[0].music_setting
-        last_today_text = main_app.app_screen_manager.get_screen('today results').children[1].children[0].children[
+        last_today_text = main_app.app_screen_manager.get_screen('today results').children[2].children[0].children[
             1].text
-        last_future_text = main_app.app_screen_manager.get_screen('future results').children[1].children[0].children[
+        last_future_text = main_app.app_screen_manager.get_screen('future results').children[2].children[0].children[
             1].text
         json.dump({"music_active": music_data,
                    "user_searches": {"search_today": last_today_text, "search_future": last_future_text}}, fs)
