@@ -100,8 +100,13 @@ class MyLoader(FloatLayout):
     angle = NumericProperty(0)
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
 
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.uix.floatlayout.html
+        """
+
+        super().__init__(**kwargs)
         self.root = root = self
         self.root.canvas = Canvas()
         root.bind(angle=self.on_angle)
@@ -110,6 +115,16 @@ class MyLoader(FloatLayout):
         self.rotate_animation.start(self)
 
     def on_angle(self, item, angle):
+        """
+        Every time the angle of the item changes, this function is called to continue the rotation. Almost like a
+        recursive function as each change in angle runs this which causes another change.
+
+        :param item: the object being rotated
+        :type: object
+
+        :param angle: the angle at which the item's rotation will change to
+        :type: int
+        """
         item.rotate_animation.stop(self)
         item.rotate_animation = Animation(angle=1, duration=0.00001)
         item.rotate_animation.start(self)
@@ -128,12 +143,18 @@ class MyLoader(FloatLayout):
 class MyTextInput(TextInput):
     """
     A search bar for today's events and future's events. Each time text updates, updates the scrolling view.
-
-    :param event_screen: the screen that the text input is held in
-    :type: object
     """
 
     def __init__(self, event_screen, **kwargs):
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
+
+        :param event_screen: the screen that the text input is held in
+        :type: object
+
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.uix.textinput.html
+        """
+
         super().__init__(**kwargs)
         self.background_normal = 'Images/buttons/small_button.png'
         self.background_active = 'Images/buttons/small_button_down.png'
@@ -152,6 +173,13 @@ class MyTextInput(TextInput):
         self.text = last_today_search if self.parent_screen.name == 'today results' else last_future_search
 
     def __str__(self):
+        """
+        Simple change which helps the search_events function above
+
+        :return: a simple name to represent an instance
+        :rtype: str
+        """
+
         try:
             return "MyTextInput_%s" % self.parent_screen.name
         except AttributeError:
@@ -164,6 +192,12 @@ class MyLabel(Label):
     """
 
     def __init__(self, **kwargs):
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
+
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.uix.label.html
+        """
+
         super().__init__(**kwargs)
         self.color = (0.66, 0.66, 0.66, 1)
         self.font_name = font_path
@@ -172,13 +206,19 @@ class MyLabel(Label):
 class MyScrollingView(ScrollView):
     """
     A scrollable label for both today's results screen and future's results screen
-
-    :param live_music_num: 0 signifies only today's events, while 1 signifies all foreseeable events, while 2 signifies
-    past events
-    :type: int
     """
 
     def __init__(self, live_music_num, **kwargs):
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
+
+        :param live_music_num: 0 signifies only today's events, while 1 signifies all foreseeable events, while 2 signifies
+        past events
+        :type: int
+
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.uix.scrollview.html
+        """
+
         super().__init__(**kwargs)
         self.live_music_num = live_music_num
         self.effect_cls = OpacityScrollEffect
@@ -191,6 +231,12 @@ class MyScrollingView(ScrollView):
         self.add_widget(self.layout_display_results)
 
     def update_event_info(self, specific_events=None):
+        """
+        This updates the event info in the scrolling view.
+
+        :param specific_events: a set of events to be specified. Upon no input, will use all found events.
+        :type: list
+        """
 
         updated_live_music_events = specific_events if specific_events else update_live_music_events()
         self.layout_display_results.clear_widgets()
@@ -249,10 +295,24 @@ class MyScrollingView(ScrollView):
 
     @classmethod
     def new_tonights_results(cls):
+        """
+        Eliminates the need to awkwardly remember that a zero denotes tonight's events
+
+        :return: an instance of MyScrollingView with results set to tonight
+        :rtype: object
+        """
+
         return cls(0)
 
     @classmethod
     def new_future_results(cls):
+        """
+        Eliminates the need to awkwardly remember that a one denotes future events
+
+        :return: an instance of MyScrollingView with results set to future
+        :rtype: object
+        """
+
         return cls(1)
 
 
@@ -264,6 +324,12 @@ class MyScreen(Screen):
     """
 
     def __init__(self, **kwargs):
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
+
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.modules.screen.html
+        """
+
         super().__init__(**kwargs)
         self.button_to_home = MyButton('travel to home', 'home screen', 'down')
         self.layout_text_input = AnchorLayout(anchor_x='center', anchor_y='top', padding=[11, 93, 11, 299])
@@ -282,6 +348,11 @@ class MyScreen(Screen):
             self.rect = Rectangle(size=root.size, pos=root.pos)
 
     def fill_screen(self):
+        """
+        A simple function just used by the Future and Tonight events screens. Gets all the common widgets and adds them
+        to their respective layouts.
+        """
+
         self.layout_inner_grid.add_widget(self.button_to_home)
         self.layout_hidden.add_widget(Image(source='Images/icons/search_icon.png'))
         self.add_widget(self.layout_back_search)
@@ -289,11 +360,28 @@ class MyScreen(Screen):
         self.add_widget(self.layout_hidden)
 
     def _update_rect(self, *args):
+        """
+        This must be in every screen as it is what fills the background dynamically.
+
+        :param args: the 0th element should have a pos and size.
+        """
+
         self.rect.pos = args[0].pos
         self.rect.size = args[0].size
 
     @staticmethod
     def update_events_with_search(instance, value):
+        """
+        Once the list of all events has been reduced using the user's search, the specific events are passed on to the
+        update_event_info method of MyScrollingView to update what the user sees.
+
+        :param instance: the instance of MyTextInput that the user is searching from.
+        :type: object
+
+        :param value: the text that the user has searched in the MyTextInput
+        :type: str
+        """
+
         specific_events = search_events(value, instance, live_music_events)
         input_screen_name = str(instance).split('_')[1]
 
@@ -308,9 +396,26 @@ class MyScreen(Screen):
             pass
 
     def callback(self, *args):
+        """
+        Allows me to pass arguments to a function that will be called through .bind (as you see in the following method)
+
+        :param args: the args that will be passed on to the function
+        """
+
         self.update_events_with_search(self.instance, self.value)
 
     def on_text(self, instance, value):
+        """
+        This function is key as it actually starts the event searching process by calling the first function required,
+        update_events_with_search.
+
+        :param instance: the MyTextInput instance that was used to search
+        :type: object
+
+        :param value: the value of the search
+        :type: str
+        """
+
         self.instance = instance
         self.value = value
         self.searching_animation.start(self.layout_hidden)
@@ -323,18 +428,24 @@ class MyButton(Button):
     """
     Takes everything needed from the built-in Button class and adds in my own animation.
     Shrinks both the button and font-size slightly and then reverts back to the original size.
-
-    :param manager: give the button access to the screen manager
-    :type: object
-
-    :param destination: gives the screen name that the button will change to
-    :type: str
-
-    :param t_direction: transition direction of the screen- which direction does it slide, up or down
-    :type: str
     """
 
     def __init__(self, button_usage, destination=None, t_direction=None, **kwargs):
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
+
+        :param button_usage: the shortest description of what the button will do upon press
+        :type: str
+
+        :param destination: gives the screen name that the button will change to
+        :type: str
+
+        :param t_direction: transition direction of the screen- which direction does it slide, up or down
+        :type: str
+
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.uix.button.html
+        """
+
         super().__init__(**kwargs)
         all_buttons.append(self)
         self._usage = button_usage
@@ -347,6 +458,7 @@ class MyButton(Button):
         if self._usage == 'travel to home':
             self.background_normal = 'Images/buttons/small_button_arrow_up.png'
             self.background_down = 'Images/buttons/small_button_arrow_down.png'
+
         elif self._usage == 'music_change':
 
             if background_music.state == 'stop':
@@ -363,6 +475,7 @@ class MyButton(Button):
         elif self._usage == 'travel':
             self.background_normal = 'Images/buttons/large_button.png'
             self.background_down = 'Images/buttons/large_button_down.png'
+
         else:
             self.background_normal = 'Images/buttons/small_button.png'
             self.background_down = 'Images/buttons/small_button_down.png'
@@ -374,6 +487,15 @@ class MyButton(Button):
         self.color = (0.66, 0.66, 0.66, 1)
 
     def update_scrolling_view(self, *args):
+        """
+        This causes an update to the scrolling view in a thread- this was done so that I can tell from outside the
+        function (while it's running) whether or not it is complete. This was necessary for animation purposes. This
+        is different from previous methods that update the scrolling view as this is called when the refresh button is
+        pressed.
+
+        :param args: the function is called through a .bind, so parameters are passed that are not needed by default.
+        This parameter allows the function to work no matter what Kivy automatically passes it.
+        """
 
         update_event_info_today_thread = Thread(
             target=self._manager.get_screen('today results').base_scroll_view.update_event_info
@@ -395,6 +517,13 @@ class MyButton(Button):
         hiding_animation.start(self.parent.parent.parent.children[0].children[0].children[0])
 
     def changer(self, *args):
+        """
+        Depending on the instance of MyButton that was pressed, an action is taken.
+
+        :param args: the function is called through a .bind, so parameters are passed that are not needed by default.
+        This parameter allows the function to work no matter what Kivy automatically passes it.
+        """
+
         if 'travel' in self._usage:
             darkening_animation.start(self._manager.current_screen)
             lighting_animation.start(self._manager.get_screen(self._destination))
@@ -424,6 +553,10 @@ class MyButton(Button):
                 self._volume_changer(False)
 
     def on_press(self):
+        """
+        This is called every time any instance is pressed. All it does is run the animation for the button to make it
+        look more like a real button and activate the music if that is what the default user setting calls for.
+        """
 
         button_animation = Animation(size=(self.size[0] - 10, self.size[1] - 5), duration=0.04) & \
                            Animation(font_size=7, duration=0.04) + \
@@ -437,10 +570,32 @@ class MyButton(Button):
 
     @classmethod
     def travel(cls, destination, t_direction, **kwargs):
+        """
+        Allows me to not have to worry about entering the correct string while trying to create a button meant for
+        traveling to different screens.
+
+        :param destination: the button screen destination
+        :type: str
+
+        :param t_direction: the transition direction
+        :type: str
+
+        :param kwargs: other kwargs available at https://kivy.org/docs/api-kivy.uix.button.html
+
+        :return: an instance of MyButton that is set up for travel.
+        :rtype: object
+        """
+
         return cls('travel', destination, t_direction, **kwargs)
 
     @staticmethod
     def _volume_changer(new_music_setting):
+        """
+        When the music button is pressed, it iterates through all buttons to either reactivate or deactivate their sound
+
+        :param new_music_setting: whether or not the music is on or off.
+        :type: boolean
+        """
 
         for button in all_buttons:
             button.music_setting = new_music_setting
@@ -453,6 +608,12 @@ class HomeScreen(MyScreen):
     """
 
     def __init__(self, **kwargs):
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
+
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.modules.screen.html
+        """
+
         super().__init__(**kwargs)
         _title_image = Image(source='Images/best_title_img.png')
 
@@ -506,8 +667,13 @@ class TonightResultsScreen(MyScreen):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
 
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.modules.screen.html
+        """
+
+        super().__init__(**kwargs)
         self.base_scroll_view = MyScrollingView.new_tonights_results()
         today_text_input = MyTextInput(self)
         today_text_input.bind(text=self.on_text)
@@ -521,8 +687,13 @@ class FutureResultsScreen(MyScreen):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
 
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.modules.screen.html
+        """
+
+        super().__init__(**kwargs)
         self.base_scroll_view = MyScrollingView.new_future_results()
         future_text_input = MyTextInput(self)
         future_text_input.bind(text=self.on_text)
@@ -536,6 +707,12 @@ class AboutScreen(MyScreen):
     """
 
     def __init__(self, **kwargs):
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
+
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.modules.screen.html
+        """
+
         super().__init__(**kwargs)
         layout_display_results = BoxLayout(orientation='vertical', spacing=5, padding=[5])
         self._output_string = '''
@@ -558,18 +735,27 @@ Built with Python. Modules: Kivy, BeautifulSoup and Requests.
 
 class MyApp(App):
     """
-    Set everything up, display the background.jpg as the background image.
+    Set everything up, e.g., display the background.jpg as the background image.
     Adjust the size of the image based on the size of the screen
-
-    :return app_screen_manager: the screen manager of all the screens in the app
-    :rtype: object
     """
 
     def __init__(self, **kwargs):
+        """
+        Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
+
+        :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.app.html
+        """
+
         super().__init__(**kwargs)
         self._app_screen_manager = ScreenManager(transition=SlideTransition(duration=0.25))
 
     def build(self):
+        """
+        Function required in Kivy that does what it says- builds the app.
+
+        :return: the app screen manager
+        :rtype: object
+        """
         home_screen = HomeScreen(name='home screen')
         today_results_screen = TonightResultsScreen(name='today results')
         future_results_screen = FutureResultsScreen(name='future results')
@@ -589,14 +775,24 @@ class MyApp(App):
 
 if __name__ == '__main__':
 
+    # create common animations
     darkening_animation = Animation(opacity=0, duration=0.5)
     lighting_animation = Animation(opacity=1.0, duration=0.5)
+
+    # get the live music events
     live_music_events = update_live_music_events()
+
+    # create list to hold all the MyButton instances
     all_buttons = []
+
+    # save the file path to the font used in a variable
     font_path = 'Font/Raleway-Regular.ttf'
+
+    # load the app sounds
     background_music = SoundLoader.load('Sounds/backgroundmusic.wav')
     button_sound = SoundLoader.load('Sounds/buttonsound.wav')
 
+    # open the user_settings.json file and get the user settings
     with open('user_settings.json') as fs:
         json_data = json.load(fs)
         last_setting = json_data.get('music_active')
@@ -604,18 +800,22 @@ if __name__ == '__main__':
         last_today_search = previous_searches.get('search_today')
         last_future_search = previous_searches.get('search_future')
 
+    # lower button sound
     if button_sound:
         button_sound.volume = 0.1
 
+    # loop background music, lower it's volume and if the last music setting is true, play the music
     if background_music:
         background_music.loop = True
         background_music.volume = 0.5
         if last_setting is True:
             background_music.play()
 
+    # build and run the app
     main_app = MyApp()
     main_app.run()
 
+    # upon closing the app, access user_settings.json and write the previous settings that were changed during last run
     with open('user_settings.json', 'w') as fs:
         music_data = main_app.app_screen_manager.get_screen('home screen').children[4].children[0].music_setting
         last_today_text = main_app.app_screen_manager.get_screen('today results').children[2].children[0].children[
