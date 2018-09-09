@@ -31,6 +31,10 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 from kivy.utils import escape_markup
 
+import sys
+import os
+sys.path.append(os.path.dirname(__file__)+"\\src")
+
 from reach_db import get_db_info
 
 
@@ -212,8 +216,8 @@ class MyScrollingView(ScrollView):
         """
         Set up inheritance of parent with the kwargs as well as add variables needed by all instances.
 
-        :param live_music_num: 0 signifies only today's events, while 1 signifies all foreseeable events, while 2 signifies
-        past events
+        :param live_music_num: 0 signifies only today's events, while 1 signifies all foreseeable events, while 2
+        signifies past events
         :type: int
 
         :param kwargs: all available kwargs can be found at https://kivy.org/docs/api-kivy.uix.scrollview.html
@@ -559,9 +563,9 @@ class MyButton(Button):
         """
 
         button_animation = Animation(size=(self.size[0] - 10, self.size[1] - 5), duration=0.04) & \
-                           Animation(font_size=7, duration=0.04) + \
-                           Animation(size=(self.size[0], self.size[1]), duration=0.04) & \
-                           Animation(font_size=self.font_size, duration=0.04)
+            Animation(font_size=7, duration=0.04) + \
+            Animation(size=(self.size[0], self.size[1]), duration=0.04) & \
+            Animation(font_size=self.font_size, duration=0.04)
         button_animation.bind(on_complete=self.changer)
         button_animation.start(self)
 
@@ -722,7 +726,7 @@ The art for the app was created by Robert Morgan.
 The sound effects/music was created by Brandon Duffield.
 The idea for the app was provided by Jon Czernel.
 The web scraping functionality and the app itself was created by Logan Czernel.
-Built with Python. Modules: Kivy, BeautifulSoup and Requests.
+Built with Python. Modules: Kivy, BeautifulSoup, MySQLdb and Requests.
 '''
         label_results = MyLabel(text=self._output_string, font_size=10, text_size=[200, 200], halign='center')
         self.layout_to_home_screen = AnchorLayout(anchor_x='center', anchor_y='top', padding=[5])
@@ -751,7 +755,7 @@ class MyApp(App):
 
     def build(self):
         """
-        Function required in Kivy that does what it says- builds the app.
+        Function required in Kivy- builds the app.
 
         :return: the app screen manager
         :rtype: object
